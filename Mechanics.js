@@ -319,7 +319,7 @@ export class InputController {
         if (rotationDelta > Math.PI) rotationDelta -= 2 * Math.PI;
         else if (rotationDelta < -Math.PI) rotationDelta += 2 * Math.PI;
         
-        this.state.rotationDelta = rotationDelta;
+        this.state.rotationDelta = -rotationDelta;
         this.touch.lastAngle = currentAngle;
     }
 
