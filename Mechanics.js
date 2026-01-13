@@ -467,9 +467,16 @@ export class Pathfinder {
                 if (this.checkCollision(worldPos.x, worldPos.y)) continue;
 
                 const dist = (neighbor.x !== current.x && neighbor.y !== current.y) ? 1.414 : 1;
-                const tentativeG = (gScore.get(key(current)) || Infinity) + dist;
 
-                if (tentativeG < (gScore.get(neighborKey) || Infinity)) {
+                let currentG = gScore.get(key(current));
+                if (currentG === undefined) currentG = Infinity;
+
+                const tentativeG = currentG + dist;
+
+                let neighborG = gScore.get(neighborKey);
+                if (neighborG === undefined) neighborG = Infinity;
+
+                if (tentativeG < neighborG) {
                     cameFrom.set(neighborKey, current);
                     gScore.set(neighborKey, tentativeG);
                     fScore.set(neighborKey, tentativeG + this.heuristic(neighbor, endNode));
