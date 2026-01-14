@@ -247,6 +247,14 @@ class Game {
         this.ctx.fillText(`Pos: ${this.player.x.toFixed(1)}, ${this.player.y.toFixed(1)}`, 10, 20);
         this.ctx.fillText(`Event: ${this.lastEvent}`, 10, 40);
         this.ctx.fillText(`Toggle: ${this.isRunToggleOn ? 'Run' : 'Walk'}. Tap (Smart Move).`, 10, 60);
+
+        // Stats Debug
+        if (this.player.getDebugInfo) {
+            const lines = this.player.getDebugInfo().trim().split('\n');
+            lines.forEach((line, i) => {
+                this.ctx.fillText(line, 10, 90 + (i * 15));
+            });
+        }
     }
 
     loop() {

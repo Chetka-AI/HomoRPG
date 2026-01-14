@@ -38,7 +38,10 @@ export class Character {
 
         // 1. Determine Target Speed & Acceleration
         const isMoving = (inputVector.x !== 0 || inputVector.y !== 0);
-        const currentMaxSpeed = this.baseSpeed * (actualSprint ? this.sprintMultiplier : 1.0);
+
+        // Calculate Max Speed based on Stats
+        const speedMultiplier = this.stats.getSpeedMultiplier();
+        const currentMaxSpeed = this.baseSpeed * speedMultiplier * (actualSprint ? this.sprintMultiplier : 1.0);
 
         // Update Vital Stats
         // Velocity magnitude for accurate calorie burn approximation
@@ -254,5 +257,17 @@ export class Character {
         ctx.fillRect(-19, -29, 38 * pct, 3);
 
         ctx.restore();
+    }
+
+    getDebugInfo() {
+        return `
+Mass: ${this.stats.mass.toFixed(1)} kg
+Health: ${this.stats.health.toFixed(0)}%
+Energy: ${this.stats.energy.toFixed(0)}%
+Hunger: ${this.stats.hunger.toFixed(0)}%
+Thirst: ${this.stats.thirst.toFixed(0)}%
+Toilet: ${this.stats.toilet.toFixed(0)}%
+SpeedMult: ${this.stats.getSpeedMultiplier().toFixed(2)}x
+`;
     }
 }
