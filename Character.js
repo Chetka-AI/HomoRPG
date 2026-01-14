@@ -60,7 +60,7 @@ export class Character {
 
         // Sync mass with inventory weight (Simplified physics: Mass = Body + Gear)
         // (Optional: If we want inventory to actually weigh us down)
-        this.stats.mass = 75.0 + this.inventory.currentWeight;
+        this.stats.inventoryMass = this.inventory.currentWeight;
 
         // 2. Apply Acceleration
         if (isMoving) {
@@ -269,7 +269,7 @@ export class Character {
 
     getDebugInfo() {
         return `
-Mass: ${this.stats.mass.toFixed(1)} kg
+Mass: ${this.stats.totalMass.toFixed(1)} kg (${this.stats.mass.toFixed(1)} + ${this.stats.inventoryMass.toFixed(1)})
 Health: ${this.stats.health.toFixed(0)}%
 Energy: ${this.stats.energy.toFixed(0)}%
 Hunger: ${this.stats.hunger.toFixed(0)}%
