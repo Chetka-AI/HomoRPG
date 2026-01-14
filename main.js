@@ -1,4 +1,5 @@
 import { InputController, PhysicsController, Pathfinder } from './Mechanics.js';
+import { Character } from './Character.js';
 
 class Game {
     constructor() {
@@ -10,17 +11,12 @@ class Game {
         window.addEventListener('resize', () => this.resize());
 
         this.input = new InputController(this.overlay);
-        this.physics = new PhysicsController();
+        this.physics = new PhysicsController(); // Kept for other entities if needed
         
         // Initialize Pathfinder with bound collision check
         this.pathfinder = new Pathfinder((x, y) => this.checkCollision(x, y));
         
-        this.player = {
-            x: 0, 
-            y: 0, 
-            rotation: 0,
-            radius: 15
-        };
+        this.player = new Character(0, 0);
 
         this.camera = { x: 0, y: 0, zoom: 1.0, rotation: 0 };
         this.lastTime = performance.now();
@@ -125,18 +121,33 @@ class Game {
             this.path = []; // Stop moving
         }
 
-        // Determine Physics Input (Joystick overrides Path)
-        let physInput = { x: 0, y: 0, active: false, sprint: false };
+        // Determine World Input Vector for Character
+        let worldInput = { x: 0, y: 0 };
+        let isSprinting = false;
 
         if (inputState.active) {
             // Joystick / Keyboard active
-            physInput.x = inputState.x;
-            physInput.y = inputState.y;
-            physInput.active = true;
-            // Joystick toggle logic:
-            // Default Walk. If Toggle ON -> Sprint.
-            // (Unless Keyboard Shift is pressed, which InputController handles via inputState.sprint)
-            physInput.sprint = this.isRunToggleOn || inputState.sprint; 
+            // Input X/Y is screen space relative (NippleJS: Up=+Y).
+            // We want to move relative to Camera Rotation.
+
+            // Screen Vector: (x, -y) because Screen Y is Down, World Y is Down, but Nipple Y is Up.
+            // Wait, Nipple Y=+1 (Up). Screen Y=0 (Top).
+            // If I push Nipple Up, I want to move "Up" on screen.
+            // "Up" on screen is World vector rotated by -CameraRotation.
+            // "Up" on screen in World Space (unrotated) is (0, -1).
+            // So we take input (x, -y) and rotate it by -CameraRotation.
+
+            const ix = inputState.x;
+            const iy = -inputState.y; // Invert Y for Screen Space
+
+            const r = -this.camera.rotation;
+            const cos = Math.cos(r);
+            const sin = Math.sin(r);
+
+            worldInput.x = ix * cos - iy * sin;
+            worldInput.y = ix * sin + iy * cos;
+
+            isSprinting = this.isRunToggleOn || inputState.sprint;
             
             this.path = []; // Cancel path on manual input
         } else if (this.path.length > 0) {
@@ -147,34 +158,20 @@ class Game {
             const dist = Math.hypot(dx, dy);
 
             if (dist > 15) { // Reach radius
-                let wx = dx / dist;
-                let wy = dy / dist;
-                
-                // Rotate input relative to camera
-                const r = -this.camera.rotation;
-                const cos = Math.cos(r);
-                const sin = Math.sin(r);
-                
-                const ix = wx * cos - wy * sin;
-                const iy = wx * sin + wy * cos;
-                
-                physInput.x = ix;
-                physInput.y = -iy;
-                
-                physInput.active = true;
-                physInput.sprint = this.isPathSprinting;
+                worldInput.x = dx / dist;
+                worldInput.y = dy / dist;
+                isSprinting = this.isPathSprinting;
             } else {
                 // Reached point, go to next
                 this.path.shift();
             }
         }
 
-        // Apply Physics
-        this.physics.update(
-            this.player, 
-            physInput, 
-            this.camera.rotation, 
+        // Apply Physics via Character Module
+        this.player.update(
             dt, 
+            worldInput,
+            isSprinting,
             (x, y) => this.checkCollision(x, y)
         );
 
@@ -237,20 +234,7 @@ class Game {
         }
 
         // Player
-        this.ctx.save();
-        this.ctx.translate(this.player.x, this.player.y);
-        this.ctx.rotate(this.player.rotation);
-        this.ctx.fillStyle = '#ff4757';
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, this.player.radius, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.strokeStyle = '#fff';
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, 0);
-        this.ctx.lineTo(20, 0);
-        this.ctx.stroke();
-        this.ctx.restore();
+        this.player.render(this.ctx);
 
         this.ctx.restore();
         
