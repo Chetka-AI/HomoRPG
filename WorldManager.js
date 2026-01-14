@@ -347,12 +347,21 @@ export class WorldManager {
         let nearest = null;
         let minDist = maxDist;
 
-        for (const chunk of this.activeChunks.values()) {
-            for (let obj of chunk.objects) {
-                const dist = Math.hypot(obj.x - x, obj.y - y);
-                if (dist < minDist) {
-                    minDist = dist;
-                    nearest = obj;
+        const cx = Math.floor(x / CHUNK_SIZE_PX);
+        const cy = Math.floor(y / CHUNK_SIZE_PX);
+
+        for (let ny = cy - 1; ny <= cy + 1; ny++) {
+            for (let nx = cx - 1; nx <= cx + 1; nx++) {
+                const key = `${nx},${ny}`;
+                const chunk = this.activeChunks.get(key);
+                if (chunk) {
+                    for (let obj of chunk.objects) {
+                        const dist = Math.hypot(obj.x - x, obj.y - y);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearest = obj;
+                        }
+                    }
                 }
             }
         }
