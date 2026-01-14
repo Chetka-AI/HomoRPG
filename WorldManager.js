@@ -254,13 +254,16 @@ export class WorldManager {
         return false;
     }
 
-    render(ctx) {
+    // Split Rendering
+    renderBottom(ctx) {
         if (!this.mapsLoaded) return;
 
+        // Render Terrain
         for (const chunk of this.activeChunks.values()) {
             chunk.renderTerrain(ctx);
         }
 
+        // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
         let allObjects = [];
         for (const chunk of this.activeChunks.values()) {
             allObjects = allObjects.concat(chunk.objects);
@@ -268,10 +271,33 @@ export class WorldManager {
         allObjects.sort((a, b) => a.y - b.y);
 
         for (const obj of allObjects) {
+            // Standard render method (Trunk only for trees, Full for others)
             obj.render(ctx);
         }
     }
 
+    renderTop(ctx, player) {
+        if (!this.mapsLoaded) return;
+
+        // Render Crowns (Upper Layer)
+        // We can reuse the collected objects from renderBottom if we optimized,
+        // but collecting again is safer/easier for now.
+        let allObjects = [];
+        for (const chunk of this.activeChunks.values()) {
+            allObjects = allObjects.concat(chunk.objects);
+        }
+        // Crowns also need depth sorting relative to each other?
+        // Yes, generally.
+        allObjects.sort((a, b) => a.y - b.y);
+
+        for (const obj of allObjects) {
+            if (obj.renderCrown) {
+                obj.renderCrown(ctx, player);
+            }
+        }
+    }
+
+    // Adapt Interface for Game
     add(obj) {
         const cx = Math.floor(obj.x / CHUNK_SIZE_PX);
         const cy = Math.floor(obj.y / CHUNK_SIZE_PX);
