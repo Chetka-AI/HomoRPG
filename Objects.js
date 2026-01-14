@@ -120,12 +120,8 @@ export class Tree extends GameObject {
             type: 'lobes'
         };
         this.seed = seed || Date.now();
-        // sizeInfo can be passed or generated locally.
-        // Logic from generator: trunkSize and crownSize are ranges.
-        // We'll generate actual sizes here if not provided.
         const rng = mulberry32(this.seed);
 
-        // Use generator logic if exact sizes aren't passed
         if (sizeInfo) {
             this.trunkSize = sizeInfo.trunkSize;
             this.crownSize = sizeInfo.crownSize;
@@ -142,7 +138,6 @@ export class Tree extends GameObject {
     render(ctx) {
         const rng = mulberry32(this.seed);
         const species = this.species;
-        const size = this.crownSize; // For crown
         const trunkW = this.trunkSize;
 
         ctx.save();
@@ -151,8 +146,6 @@ export class Tree extends GameObject {
         if (this.state === 'standing') {
             // --- TRUNK ---
             ctx.fillStyle = "rgba(0,0,0,0.5)"; // Shadow base
-            // In Objects.js local coords (0,0 is center of object)
-            // Draw shadow
             ctx.beginPath(); ctx.ellipse(5, 5, trunkW/2, trunkW/2, 0, 0, Math.PI*2); ctx.fill();
 
             ctx.fillStyle = species.trunkColor;
@@ -174,69 +167,6 @@ export class Tree extends GameObject {
                 }
                 ctx.fill();
             }
-
-            // --- CROWN ---
-            if(species.type !== 'column') { // Cactus has no crown
-                const crownColor = species.crownColors[Math.floor(rng() * species.crownColors.length)];
-
-                // Shadow on Crown (optional, simplifies to just the crown for performance/style matching)
-                // In script.js: ctx.arc(x+size*0.1, y+size*0.1, size*0.45, ...);
-                // We'll shift slightly for depth
-
-                // Note: script.js draws crown at same x,y as trunk.
-                // But normally crown is "above" trunk visually (negative Y in 2D top-down?).
-                // script.js draws them centered on the same point (Top-Down view).
-
-                ctx.fillStyle = "rgba(0,0,0,0.3)";
-                ctx.beginPath(); ctx.arc(size*0.05, size*0.05, size*0.45, 0, Math.PI*2); ctx.fill();
-
-                ctx.fillStyle = crownColor;
-
-                if(species.type === 'palm') {
-                    const leaves = 6;
-                    for(let i=0; i<leaves; i++) {
-                        const angle = (i/leaves)*Math.PI*2 + rng();
-                        const len = size*0.6;
-                        ctx.beginPath();
-                        ctx.moveTo(0,0);
-                        // quadraticCurveTo relative to 0,0
-                        // cp: x+Math.cos(angle)*len*0.5, y+Math.sin(angle)*len*0.5 - 20
-                        const cpx = Math.cos(angle)*len*0.5;
-                        const cpy = Math.sin(angle)*len*0.5 - 20; // -20 gives it 'lift' in Y?
-                        const ex = Math.cos(angle)*len;
-                        const ey = Math.sin(angle)*len;
-
-                        ctx.quadraticCurveTo(cpx, cpy, ex, ey);
-                        ctx.lineWidth = size*0.05;
-                        ctx.strokeStyle = crownColor;
-                        ctx.stroke();
-                    }
-                }
-                else if (species.type === 'flat') { // Acacia
-                    const blobs = 5;
-                    for(let i=0; i<blobs; i++) {
-                        const angle = (i/blobs)*Math.PI*2;
-                        const dist = size*0.3;
-                        ctx.beginPath();
-                        ctx.ellipse(Math.cos(angle)*dist, Math.sin(angle)*dist, size*0.2, size*0.15, 0, 0, Math.PI*2);
-                        ctx.fill();
-                    }
-                }
-                else {
-                    // Standard lobes
-                    const blobs = 10 + Math.floor(rng()*5);
-                    for(let i=0; i<blobs; i++) {
-                        const ang = rng()*Math.PI*2;
-                        const dist = rng()*size*0.3;
-                        const rad = size*(0.15+rng()*0.1);
-                        ctx.beginPath();
-                        ctx.arc(Math.cos(ang)*dist, Math.sin(ang)*dist, rad, 0, Math.PI*2);
-                        ctx.fill();
-                    }
-                    ctx.beginPath(); ctx.arc(0,0,size*0.25, 0, Math.PI*2); ctx.fill();
-                }
-            }
-
         } else if (this.state === 'fallen') {
             // Simplified fallen state
             ctx.rotate(Math.PI / 2);
@@ -247,6 +177,75 @@ export class Tree extends GameObject {
             ctx.strokeStyle = '#3e2723';
             ctx.beginPath(); ctx.rect(-10, -5, 8, 4); ctx.fill(); ctx.stroke();
             ctx.beginPath(); ctx.rect(5, 5, 8, 4); ctx.fill(); ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    renderCrown(ctx, player) {
+        if (this.state !== 'standing') return;
+
+        const rng = mulberry32(this.seed);
+        const species = this.species;
+        const size = this.crownSize;
+
+        if (species.type === 'column') return; // Cactus has no separate crown
+
+        // Transparency Logic
+        const dist = Math.hypot(this.x - player.x, this.y - player.y);
+        const isTransparent = dist < 500; // 5 tiles approx
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (isTransparent) ctx.globalAlpha = 0.4;
+
+        const crownColor = species.crownColors[Math.floor(rng() * species.crownColors.length)];
+
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.beginPath(); ctx.arc(size*0.05, size*0.05, size*0.45, 0, Math.PI*2); ctx.fill();
+
+        ctx.fillStyle = crownColor;
+
+        if(species.type === 'palm') {
+            const leaves = 6;
+            for(let i=0; i<leaves; i++) {
+                const angle = (i/leaves)*Math.PI*2 + rng();
+                const len = size*0.6;
+                ctx.beginPath();
+                ctx.moveTo(0,0);
+                const cpx = Math.cos(angle)*len*0.5;
+                const cpy = Math.sin(angle)*len*0.5 - 20;
+                const ex = Math.cos(angle)*len;
+                const ey = Math.sin(angle)*len;
+
+                ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+                ctx.lineWidth = size*0.05;
+                ctx.strokeStyle = crownColor;
+                ctx.stroke();
+            }
+        }
+        else if (species.type === 'flat') { // Acacia
+            const blobs = 5;
+            for(let i=0; i<blobs; i++) {
+                const angle = (i/blobs)*Math.PI*2;
+                const dist = size*0.3;
+                ctx.beginPath();
+                ctx.ellipse(Math.cos(angle)*dist, Math.sin(angle)*dist, size*0.2, size*0.15, 0, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+        else {
+            // Standard lobes
+            const blobs = 10 + Math.floor(rng()*5);
+            for(let i=0; i<blobs; i++) {
+                const ang = rng()*Math.PI*2;
+                const dist = rng()*size*0.3;
+                const rad = size*(0.15+rng()*0.1);
+                ctx.beginPath();
+                ctx.arc(Math.cos(ang)*dist, Math.sin(ang)*dist, rad, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.beginPath(); ctx.arc(0,0,size*0.25, 0, Math.PI*2); ctx.fill();
         }
 
         ctx.restore();
