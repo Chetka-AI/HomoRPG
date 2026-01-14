@@ -1,4 +1,5 @@
 import { CharacterStats } from './Stats.js';
+import { Inventory } from './Inventory.js';
 
 export class Character {
     constructor(x, y) {
@@ -19,6 +20,9 @@ export class Character {
 
         // Stats System
         this.stats = new CharacterStats();
+
+        // Inventory System
+        this.inventory = new Inventory(this.stats);
 
         // State Machine
         this.state = 'IDLE'; // IDLE, WALK, RUN
@@ -53,6 +57,10 @@ export class Character {
             statState = actualSprint ? 'RUN' : 'WALK';
         }
         this.stats.update(dt, statState, speed);
+
+        // Sync mass with inventory weight (Simplified physics: Mass = Body + Gear)
+        // (Optional: If we want inventory to actually weigh us down)
+        // this.stats.mass = 75.0 + this.inventory.currentWeight;
 
         // 2. Apply Acceleration
         if (isMoving) {
