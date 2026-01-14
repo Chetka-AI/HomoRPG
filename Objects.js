@@ -50,7 +50,7 @@ export class GameObject {
     }
 
     render(ctx) {
-        // Placeholder
+        throw new Error(`Render method not implemented for ${this.constructor.name}`);
     }
 
     getActions(character) {
