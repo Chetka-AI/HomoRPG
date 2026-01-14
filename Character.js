@@ -105,9 +105,9 @@ export class Character {
         const distMoved = currentSpeed * timeScale;
 
         if (distMoved > 0.01) {
-            // Adjust divisor (45.0) to change stride length/frequency.
-            // Previous was 20.0 (fast). Now 45.0 (slower, more deliberate).
-            this.animTimer += (distMoved / 45.0) * Math.PI;
+            // Adjust divisor (70.0) to change stride length/frequency.
+            // Slower animation as requested.
+            this.animTimer += (distMoved / 70.0) * Math.PI;
         } else {
             // Return to neutral stance when stopped
             const target = Math.round(this.animTimer / Math.PI) * Math.PI;
@@ -167,8 +167,10 @@ export class Character {
 
         ctx.fillStyle = shirtColor;
         ctx.beginPath();
-        // Oval shape
-        ctx.ellipse(0, 0, this.radius * 0.9, this.radius * 0.7, 0, 0, Math.PI * 2);
+        // Oval shape: Wider (shoulders) than deep (chest).
+        // Movement is along X-axis, so Shoulders are along Y-axis.
+        // Therefore, Y-radius should be larger.
+        ctx.ellipse(0, 0, this.radius * 0.6, this.radius * 0.9, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // --- HEAD ---
@@ -180,8 +182,18 @@ export class Character {
         // --- HAIR ---
         ctx.fillStyle = hairColor;
         ctx.beginPath();
-        ctx.arc(0, 0, 8.5, -Math.PI * 0.2, Math.PI * 1.2, true); // Top of head
-        ctx.lineTo(0, -6); // Cutout for face
+        // Full hair cap covering top, slightly offset back
+        ctx.arc(-1, 0, 8.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Face cutout (optional, or just style the hair to not cover the "face" area which is forward/+X)
+        // If we want a "top down" look, the face is barely visible at the front.
+        // Let's add a "nose" or face tint to the front to show direction.
+
+        // Re-draw face area on top of hair at the front
+        ctx.fillStyle = skinColor;
+        ctx.beginPath();
+        ctx.arc(6, 0, 4, 0, Math.PI * 2);
         ctx.fill();
 
         // --- HANDS ---
