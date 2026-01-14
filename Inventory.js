@@ -83,6 +83,13 @@ export class Inventory {
             this.toggle();
         });
 
+        // Hook up close button
+        const btnClose = document.getElementById('btn-inventory-close');
+        if (btnClose) btnClose.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggle();
+        });
+
         // Setup Drag Events on container
         const container = document.getElementById('inventory-container');
         if (!container) return;
