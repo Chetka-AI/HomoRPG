@@ -105,11 +105,11 @@ export class Character {
         const distMoved = currentSpeed * timeScale;
 
         if (distMoved > 0.01) {
-            // Adjust divisor (20.0) to change stride length. Lower = faster steps.
-            this.animTimer += (distMoved / 20.0) * Math.PI;
+            // Adjust divisor (45.0) to change stride length/frequency.
+            // Previous was 20.0 (fast). Now 45.0 (slower, more deliberate).
+            this.animTimer += (distMoved / 45.0) * Math.PI;
         } else {
             // Return to neutral stance when stopped
-            // Simple decay to nearest multiple of PI
             const target = Math.round(this.animTimer / Math.PI) * Math.PI;
             this.animTimer += (target - this.animTimer) * 0.1;
         }
@@ -122,29 +122,30 @@ export class Character {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
 
-        // --- FEET (Rendered before body to be underneath) ---
-        // Cycle is 0 to 2PI.
-        // Right Foot: Sin(t)
-        // Left Foot: Sin(t + PI)
+        // Colors
+        const skinColor = '#ffdbac';
+        const shirtColor = '#2c3e50';
+        const hairColor = '#3e2723';
+        const shoeColor = '#1a1a1a';
 
-        const footRadius = 6;
-        const footOffsetX = 0; // Forward/Back
-        const footOffsetY = 10; // Left/Right Spacing
-        const stride = 8; // How far feet move forward/back
+        // --- FEET ---
+        const footRadius = 5;
+        const footOffsetY = 9;
+        const stride = 10;
 
         const rightFootProgress = Math.sin(this.animTimer);
         const leftFootProgress = Math.sin(this.animTimer + Math.PI);
 
-        ctx.fillStyle = '#aa2e3b'; // Darker red for feet
+        ctx.fillStyle = shoeColor;
 
         // Left Foot
         ctx.beginPath();
-        ctx.arc(leftFootProgress * stride, -footOffsetY, footRadius, 0, Math.PI * 2);
+        ctx.ellipse(leftFootProgress * stride, -footOffsetY, footRadius * 1.5, footRadius, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // Right Foot
         ctx.beginPath();
-        ctx.arc(rightFootProgress * stride, footOffsetY, footRadius, 0, Math.PI * 2);
+        ctx.ellipse(rightFootProgress * stride, footOffsetY, footRadius * 1.5, footRadius, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // --- SHADOW ---
@@ -153,61 +154,51 @@ export class Character {
         ctx.ellipse(0, 0, this.radius, this.radius * 0.8, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // --- BODY ---
-        // Bounce effect (Vertical bobbing)
-        // Happens twice per cycle (once for each step) -> Use sin(2*t) or abs(sin(t))
-        // We want bounce UP when feet are crossing (Neutral), DOWN when feet are extended?
-        // Actually, highest point is when pushing off (feet gathered), lowest when feet split (stride).
-        // Feet split at sin(t)=1 or -1.
-        // So scale should be min when abs(sin(t)) is 1.
-
+        // --- TORSO (Oval) ---
         let scaleX = 1.0;
         let scaleY = 1.0;
 
-        // Stretch/Squash based on bounce
-        const bounce = Math.abs(Math.sin(this.animTimer)); // 0..1
-        // When bounce is 1 (Feet split), we are lower (squash).
-        scaleX = 1.0 + bounce * 0.05;
-        scaleY = 1.0 - bounce * 0.05;
+        // Bounce/Stretch
+        const bounce = Math.abs(Math.sin(this.animTimer));
+        scaleX = 1.0 + bounce * 0.02;
+        scaleY = 1.0 - bounce * 0.02;
 
         ctx.scale(scaleX, scaleY);
 
-        // Main Shape
-        ctx.fillStyle = this.state === 'RUN' ? '#ff6b6b' : '#ff4757';
+        ctx.fillStyle = shirtColor;
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        // Oval shape
+        ctx.ellipse(0, 0, this.radius * 0.9, this.radius * 0.7, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner Detail (Head/Helmet indication)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        // --- HEAD ---
+        ctx.fillStyle = skinColor;
         ctx.beginPath();
-        ctx.arc(5, -5, this.radius * 0.4, 0, Math.PI * 2);
+        ctx.arc(0, 0, 8, 0, Math.PI * 2); // Central head
         ctx.fill();
 
-        // Direction Indicator (Triangle)
-        ctx.fillStyle = '#fff';
+        // --- HAIR ---
+        ctx.fillStyle = hairColor;
         ctx.beginPath();
-        ctx.moveTo(this.radius - 2, 0); // Front
-        ctx.lineTo(this.radius - 12, -6);
-        ctx.lineTo(this.radius - 12, 6);
+        ctx.arc(0, 0, 8.5, -Math.PI * 0.2, Math.PI * 1.2, true); // Top of head
+        ctx.lineTo(0, -6); // Cutout for face
         ctx.fill();
 
         // --- HANDS ---
-        // Swing opposite to feet
-        const handSwing = 6;
-        const leftHandX = rightFootProgress * handSwing; // Left hand moves with Right foot
-        const rightHandX = leftFootProgress * handSwing; // Right hand moves with Left foot
+        const handSwing = 8;
+        const leftHandX = rightFootProgress * handSwing;
+        const rightHandX = leftFootProgress * handSwing;
 
-        ctx.fillStyle = '#c0392b';
+        ctx.fillStyle = skinColor;
 
         // Left Hand
         ctx.beginPath();
-        ctx.arc(leftHandX + 2, -this.radius - 2, 5, 0, Math.PI*2);
+        ctx.arc(leftHandX + 2, -this.radius - 4, 4, 0, Math.PI*2);
         ctx.fill();
 
         // Right Hand
         ctx.beginPath();
-        ctx.arc(rightHandX + 2, this.radius + 2, 5, 0, Math.PI*2);
+        ctx.arc(rightHandX + 2, this.radius + 4, 4, 0, Math.PI*2);
         ctx.fill();
 
         ctx.restore();
