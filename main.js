@@ -140,7 +140,10 @@ class Game {
             const ix = inputState.x;
             const iy = -inputState.y; // Invert Y for Screen Space
 
-            const r = -this.camera.rotation;
+            // To move "Up" on screen regardless of Camera Rotation:
+            // We need to rotate the Screen Vector by the Camera Rotation to get the World Vector.
+            // (The inverse of the View Matrix rotation).
+            const r = this.camera.rotation;
             const cos = Math.cos(r);
             const sin = Math.sin(r);
 
