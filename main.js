@@ -68,7 +68,7 @@ class Game {
         ctx.drawImage(this.world.biomeCanvas, 0, 0);
 
         // Add Click Listener
-        const startHandler = (e) => {
+        const selectLocationHandler = (e) => {
             const rect = mapCanvas.getBoundingClientRect();
             const scaleX = mapCanvas.width / rect.width;
             const scaleY = mapCanvas.height / rect.height;
@@ -84,26 +84,28 @@ class Game {
             this.player.x = chunkX * 1000 + 500;
             this.player.y = chunkY * 1000 + 500;
 
-            console.log(`Starting at Chunk ${chunkX}, ${chunkY} (Pos: ${this.player.x}, ${this.player.y})`);
-
-            // Hide Start Screen
-            startScreen.style.display = 'none';
-            document.getElementById('ui-layer').style.display = 'block';
-
-            this.gameStarted = true;
-            this.camera.x = this.player.x;
-            this.camera.y = this.player.y;
+            console.log(`Selected Chunk ${chunkX}, ${chunkY} (Pos: ${this.player.x}, ${this.player.y})`);
         };
 
-        mapCanvas.addEventListener('click', startHandler);
-        // Also touch support
+        mapCanvas.addEventListener('click', selectLocationHandler);
         mapCanvas.addEventListener('touchstart', (e) => {
             if(e.touches.length > 0) {
                  e.preventDefault();
-                 // Create mock event for handler
-                 startHandler(e.touches[0]);
+                 selectLocationHandler(e.touches[0]);
             }
         });
+
+        const btnStart = document.getElementById('btn-start-game');
+        if (btnStart) {
+            btnStart.addEventListener('click', () => {
+                startScreen.style.display = 'none';
+                document.getElementById('ui-layer').style.display = 'block';
+
+                this.gameStarted = true;
+                this.camera.x = this.player.x;
+                this.camera.y = this.player.y;
+            });
+        }
     }
 
     resize() {
