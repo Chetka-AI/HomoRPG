@@ -1,7 +1,8 @@
 export class CharacterStats {
     constructor() {
         // --- PHYSICAL ATTRIBUTES ---
-        this.mass = 75.0; // kg. Affects inertia and stamina drain.
+        this.mass = 75.0; // kg. Body Mass.
+        this.inventoryMass = 0.0; // kg. Gear/Inventory Weight.
         this.strength = 50.0; // 0-100. Affects carry weight (future) and speed slightly.
         this.endurance = 50.0; // 0-100. Reduces stamina drain.
         this.speedStat = 50.0; // 0-100. Base running speed skill.
@@ -81,7 +82,7 @@ export class CharacterStats {
 
         // --- 3. STAMINA & ACTIVITY ---
         // Factors
-        const massFactor = this.mass / 75.0; // Heavier = harder to move
+        const massFactor = this.totalMass / 75.0; // Heavier = harder to move
         const enduranceFactor = 1.0 + (this.endurance / 100.0); // Up to 2x efficiency
         const energyFactor = this.energy / 100.0; // Low energy = hard to run
 
@@ -121,6 +122,10 @@ export class CharacterStats {
         this.mass = Math.max(40, this.mass); // Min mass
     }
 
+    get totalMass() {
+        return this.mass + this.inventoryMass;
+    }
+
     train(stat, amount) {
         // Simple linear progression for now
         this[stat] = Math.min(100, this[stat] + amount);
@@ -141,8 +146,9 @@ export class CharacterStats {
         // Mass penalty logic: Optimal mass ~75.
         // >75 slows you down. <50 (starvation) slows you down.
         let massPenalty = 1.0;
-        if (this.mass > 85) massPenalty = 85 / this.mass;
-        if (this.mass < 50) massPenalty = this.mass / 50;
+        const total = this.totalMass;
+        if (total > 85) massPenalty = 85 / total;
+        if (this.mass < 50) massPenalty *= this.mass / 50; // Starvation penalty applies to body mass
 
         return skillFactor * fatigueFactor * healthFactor * massPenalty;
     }
