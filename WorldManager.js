@@ -1,5 +1,5 @@
 import { Tree, Bush, Stone, World as BaseWorld } from './Objects.js';
-import { getBiomeData, smoothNoise, mulberry32, TREE_SPECIES, SHRUB_SPECIES, STONE_SPECIES } from './TerrainGenerator.js';
+import { getBiomeData, smoothNoise, mulberry32, getHeightAtWorldPos, TREE_SPECIES, SHRUB_SPECIES, STONE_SPECIES } from './TerrainGenerator.js';
 
 const TILE_SIZE = 100;
 const CHUNK_SIZE_TILES = 10;
@@ -17,11 +17,12 @@ class Chunk {
         this.terrainCanvas.width = CHUNK_SIZE_PX;
         this.terrainCanvas.height = CHUNK_SIZE_PX;
         this.tileMap = []; // [y][x] = isWater
+        this.heightMap = []; // [y][x] = height (0-1)
         this.isModified = false;
 
         this.generateTerrain(heightCtx);
         if (generateObjects) {
-            this.generateObjectsLogic();
+            this.generateObjectsLogic(heightCtx);
         }
         this.isGenerated = true;
     }
@@ -31,23 +32,33 @@ class Chunk {
 
         for(let ty=0; ty<CHUNK_SIZE_TILES; ty++) {
             this.tileMap[ty] = [];
+            this.heightMap[ty] = [];
             for(let tx=0; tx<CHUNK_SIZE_TILES; tx++) {
                 const gx = this.x + tx*TILE_SIZE;
                 const gy = this.y + ty*TILE_SIZE;
 
                 let isWater = false;
-                let isDeep = false;
 
-                // Check Ocean via HeightMap or Biome
-                let isOceanChunk = (this.biome.name === "Ocean");
+                // --- HEIGHT LOGIC ---
+                // Get interpolated height for this tile center
+                const h = getHeightAtWorldPos(gx + TILE_SIZE/2, gy + TILE_SIZE/2, heightCtx);
+                this.heightMap[ty][tx] = h;
+
+                // Determine Water using both Biome threshold and global height map
+                // If global height is very low (< 0.16 approx 42/255), force water
+                const globalWater = h < 0.16;
                 const lakeNoise = smoothNoise(gx * 0.002, gy * 0.002, 777);
-                isWater = isOceanChunk || (lakeNoise > this.biome.waterThreshold);
+
+                // Specific Biome Logic
+                let isOceanChunk = (this.biome.name === "Ocean");
+                isWater = isOceanChunk || globalWater || (lakeNoise > this.biome.waterThreshold);
 
                 this.tileMap[ty][tx] = isWater;
 
                 if (isWater) {
                     const deepNoise = smoothNoise(gx * 0.005, gy * 0.005, 888);
-                    isDeep = deepNoise > 0.7;
+                    let isDeep = deepNoise > 0.7;
+                    if (h < 0.1) isDeep = true; // Deep ocean
 
                     let color = isDeep ? "#01579b" : "#0288d1";
                     const wave = smoothNoise(gx*0.1, gy*0.1, 888);
@@ -57,20 +68,58 @@ class Chunk {
                     ctx.fillRect(tx*TILE_SIZE, ty*TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 } else {
                     let tileColor = this.biome.terrain.base;
-                    const patchNoise = smoothNoise(gx * 0.0005, gy * 0.0005, 999);
-                    if(this.biome.terrain.patches) {
-                        for(let patch of this.biome.terrain.patches) {
-                            if(patchNoise > patch.thresh) tileColor = patch.color;
+
+                    // --- TERRAIN VARIATION BY HEIGHT ---
+
+                    // 1. Snow Cap (Height > 0.8)
+                    if (h > 0.8) {
+                        tileColor = "#eceff1"; // Snow
+                    }
+                    // 2. Mountain Rock (Height > 0.6)
+                    else if (h > 0.6) {
+                        tileColor = "#757575"; // Rock
+                        // Mix with patches
+                        const rockNoise = smoothNoise(gx * 0.02, gy * 0.02, 123);
+                        if (rockNoise > 0.5) tileColor = "#616161";
+                    }
+                    // 3. Lowland / Coast (Height < 0.2 but land)
+                    else if (h < 0.2) {
+                        // Sandy mix if near water, or just darker mud
+                        tileColor = "#d7ccc8"; // Sand/Mud
+                    }
+                    // 4. Standard Biome Patches
+                    else {
+                        const patchNoise = smoothNoise(gx * 0.0005, gy * 0.0005, 999);
+                        if(this.biome.terrain.patches) {
+                            for(let patch of this.biome.terrain.patches) {
+                                if(patchNoise > patch.thresh) tileColor = patch.color;
+                            }
                         }
                     }
+
+                    // --- SHADING (Pseudo-lighting) ---
+                    // Calculate slope (derivative of height) for simple lighting
+                    // We need neighbor height. For simplicity, sample slightly offset.
+                    const hNext = getHeightAtWorldPos(gx + TILE_SIZE + TILE_SIZE/2, gy + TILE_SIZE/2, heightCtx);
+                    const slope = hNext - h;
+
+                    // Apply shade
                     ctx.fillStyle = tileColor;
                     ctx.fillRect(tx*TILE_SIZE, ty*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+                    if (slope < -0.01) {
+                        ctx.fillStyle = "rgba(0,0,0,0.1)"; // Shadow
+                        ctx.fillRect(tx*TILE_SIZE, ty*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    } else if (slope > 0.01) {
+                        ctx.fillStyle = "rgba(255,255,255,0.1)"; // Highlight
+                        ctx.fillRect(tx*TILE_SIZE, ty*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    }
                 }
             }
         }
     }
 
-    generateObjectsLogic() {
+    generateObjectsLogic(heightCtx) {
         const buffer = 1;
         const seedBase = this.cx * 1111 + this.cy * 9999;
 
@@ -82,13 +131,33 @@ class Chunk {
                 const cellSeed = Math.floor(gx/TILE_SIZE) * 1111 + Math.floor(gy/TILE_SIZE) * 9999;
                 const cellRng = mulberry32(cellSeed);
 
-                // Re-check water (Logic duplicated from generateTerrain to avoid storing massive grid for neighbors)
-                let isOceanChunk = (this.biome.name === "Ocean");
-                const lakeNoise = smoothNoise(gx * 0.002, gy * 0.002, 777);
-                const isWater = isOceanChunk || (lakeNoise > this.biome.waterThreshold);
+                // Re-check water logic (simplified or derived)
+                let isWater = false;
+                let h = 0;
+
+                if (cx >= 0 && cx < CHUNK_SIZE_TILES && cy >= 0 && cy < CHUNK_SIZE_TILES) {
+                    isWater = this.tileMap[cy][cx];
+                    h = this.heightMap[cy][cx];
+                } else {
+                    // Fallback for buffer zones
+                    // If we have heightCtx, use it
+                    if (heightCtx) {
+                        h = getHeightAtWorldPos(gx + TILE_SIZE/2, gy + TILE_SIZE/2, heightCtx);
+                        const globalWater = h < 0.16;
+                        // Approximate lake noise
+                        const lakeNoise = smoothNoise(gx * 0.002, gy * 0.002, 777);
+                        isWater = globalWater || (lakeNoise > this.biome.waterThreshold);
+                    }
+                }
+
+                // Skip trees if too high (Mountain/Snow)
+                // Tree Line at 0.7
+                const isAboveTreeLine = h > 0.7;
 
                 // Trees
                 let treeChance = this.biome.density;
+                if (isAboveTreeLine) treeChance = 0; // No trees on peaks
+
                 const forestNoise = smoothNoise(gx*0.05, gy*0.05, 555);
                 if(forestNoise > 0.6) treeChance *= 3;
 
@@ -108,8 +177,10 @@ class Chunk {
                     }
                 }
 
-                // Bushes (Shrubs)
+                // Bushes
                 let shrubChance = 0.15;
+                if (h > 0.8) shrubChance = 0; // No bushes in deep snow
+
                 if(cellRng() < shrubChance && this.biome.shrubs && this.biome.shrubs.length > 0) {
                     const sDef = this.biome.shrubs[Math.floor(cellRng()*this.biome.shrubs.length)];
                     const species = SHRUB_SPECIES[sDef.id];
@@ -127,15 +198,15 @@ class Chunk {
                 }
 
                 // Stones
-                // Small chance for stones per tile, higher in some biomes (configured in config)
                 let stoneChance = 0.03;
-                // Using a different RNG stream or offset to decouple from trees/bushes
+                // Increase stone chance in mountains
+                if (h > 0.6) stoneChance = 0.15;
+
                 const stoneRng = mulberry32(cellSeed + 999);
 
                 if (stoneRng() < stoneChance && this.biome.stones && this.biome.stones.length > 0 && !isWater) {
                     const stDef = this.biome.stones[Math.floor(stoneRng() * this.biome.stones.length)];
-                    // If stone definition has a chance, check it
-                    if (!stDef.chance || stoneRng() < stDef.chance * 5.0) { // Multiplier to normalize low config chances
+                    if (!stDef.chance || stoneRng() < stDef.chance * 5.0) {
                         const species = STONE_SPECIES[stDef.id];
                         if (species) {
                              if (cx >= 0 && cx < CHUNK_SIZE_TILES && cy >= 0 && cy < CHUNK_SIZE_TILES) {

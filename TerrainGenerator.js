@@ -402,3 +402,56 @@ export function getBiomeData(chunkX, chunkY, biomeCtx, heightCtx) {
 
     return detectBiomeByHeuristic(r, g, b);
 }
+
+// Height Interpolation for Terrain Variation
+export function getHeightAtWorldPos(x, y, heightCtx) {
+    if (!heightCtx) return 0;
+
+    const CHUNK_SIZE_PX = 1000;
+
+    // Map coords (1 pixel = 1 chunk = 1000px)
+    const mapX = x / CHUNK_SIZE_PX;
+    const mapY = y / CHUNK_SIZE_PX;
+
+    // Clamp
+    const width = heightCtx.canvas.width;
+    const height = heightCtx.canvas.height;
+
+    if (mapX < 0 || mapX >= width - 1 || mapY < 0 || mapY >= height - 1) {
+        return 0;
+    }
+
+    const x1 = Math.floor(mapX);
+    const y1 = Math.floor(mapY);
+    const x2 = x1 + 1;
+    const y2 = y1 + 1;
+
+    // Fractional part for interpolation
+    const fx = mapX - x1;
+    const fy = mapY - y1;
+
+    // Get 4 pixels
+    // getImageData is slow if called per pixel. Ideally we'd cache this, but for now we read small area.
+    // Optimization: WorldManager probably should pass a buffer or this function assumes low frequency calls (it's called per chunk generation, 10x10 tiles, so 100 times per chunk).
+
+    const data = heightCtx.getImageData(x1, y1, 2, 2).data;
+    // data layout: R, G, B, A, R, G, B, A...
+    // Width is 2.
+    // (0,0) -> index 0
+    // (1,0) -> index 4
+    // (0,1) -> index 8 (2*4)
+    // (1,1) -> index 12
+
+    const h11 = data[0] / 255.0;
+    const h21 = data[4] / 255.0;
+    const h12 = data[8] / 255.0;
+    const h22 = data[12] / 255.0;
+
+    // Bilinear Interpolation
+    const hTop = h11 * (1 - fx) + h21 * fx;
+    const hBottom = h12 * (1 - fx) + h22 * fx;
+
+    const h = hTop * (1 - fy) + hBottom * fy;
+
+    return h;
+}
