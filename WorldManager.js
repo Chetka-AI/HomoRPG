@@ -110,7 +110,7 @@ class Chunk {
 
                 // Bushes
                 let shrubChance = 0.15;
-                if(cellRng() < shrubChance && this.biome.shrubs) {
+                if(cellRng() < shrubChance && this.biome.shrubs && this.biome.shrubs.length > 0) {
                     const sDef = this.biome.shrubs[Math.floor(cellRng()*this.biome.shrubs.length)];
                     const species = SHRUB_SPECIES[sDef.id];
 
