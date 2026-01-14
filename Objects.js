@@ -1,4 +1,5 @@
 import { Item } from './Inventory.js';
+import { mulberry32 } from './TerrainGenerator.js';
 
 export class World {
     constructor() {
@@ -111,52 +112,141 @@ export class Stone extends GameObject {
 }
 
 export class Tree extends GameObject {
-    constructor(x, y) {
+    constructor(x, y, species, seed, sizeInfo) {
         super(x, y, 'tree');
+        this.species = species || {
+            name: "Dąb", trunkColor: "#4e342e", trunkSize: [45, 65],
+            crownColors: ["#2e7d32"], crownSize: [350, 600],
+            type: 'lobes'
+        };
+        this.seed = seed || Date.now();
+        // sizeInfo can be passed or generated locally.
+        // Logic from generator: trunkSize and crownSize are ranges.
+        // We'll generate actual sizes here if not provided.
+        const rng = mulberry32(this.seed);
+
+        // Use generator logic if exact sizes aren't passed
+        if (sizeInfo) {
+            this.trunkSize = sizeInfo.trunkSize;
+            this.crownSize = sizeInfo.crownSize;
+        } else {
+            const tMin = this.species.trunkSize[0], tMax = this.species.trunkSize[1];
+            const cMin = this.species.crownSize[0], cMax = this.species.crownSize[1];
+            this.trunkSize = tMin + rng()*(tMax - tMin);
+            this.crownSize = cMin + rng()*(cMax - cMin);
+        }
+
         this.state = 'standing'; // 'standing', 'fallen', 'logs'
-        this.radius = 20;
     }
 
     render(ctx) {
+        const rng = mulberry32(this.seed);
+        const species = this.species;
+        const size = this.crownSize; // For crown
+        const trunkW = this.trunkSize;
+
         ctx.save();
         ctx.translate(this.x, this.y);
 
         if (this.state === 'standing') {
-            // Shadow
-            ctx.fillStyle = 'rgba(0,0,0,0.2)';
-            ctx.beginPath(); ctx.ellipse(0, 5, 20, 10, 0, 0, Math.PI*2); ctx.fill();
+            // --- TRUNK ---
+            ctx.fillStyle = "rgba(0,0,0,0.5)"; // Shadow base
+            // In Objects.js local coords (0,0 is center of object)
+            // Draw shadow
+            ctx.beginPath(); ctx.ellipse(5, 5, trunkW/2, trunkW/2, 0, 0, Math.PI*2); ctx.fill();
 
-            // Trunk
-            ctx.fillStyle = '#5d4037';
-            ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = species.trunkColor;
 
-            // Leaves (Top down view)
-            ctx.fillStyle = '#2e7d32';
-            ctx.beginPath(); ctx.arc(0, -10, 25, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#388e3c';
-            ctx.beginPath(); ctx.arc(-10, -5, 20, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(10, -5, 20, 0, Math.PI*2); ctx.fill();
+            if(species.type === 'column') { // Cactus
+                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.4, 0, Math.PI*2); ctx.fill();
+                if(rng()>0.5) { // Arm
+                    ctx.beginPath(); ctx.arc(trunkW*0.4, -trunkW*0.2, trunkW*0.2, 0, Math.PI*2); ctx.fill();
+                }
+            } else {
+                ctx.beginPath();
+                const points = 7;
+                for(let i=0; i<=points; i++) {
+                    const ang = i*(Math.PI*2/points);
+                    const r = (trunkW/2) * (0.85 + rng()*0.3);
+                    const px = Math.cos(ang)*r;
+                    const py = Math.sin(ang)*r;
+                    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+                }
+                ctx.fill();
+            }
+
+            // --- CROWN ---
+            if(species.type !== 'column') { // Cactus has no crown
+                const crownColor = species.crownColors[Math.floor(rng() * species.crownColors.length)];
+
+                // Shadow on Crown (optional, simplifies to just the crown for performance/style matching)
+                // In script.js: ctx.arc(x+size*0.1, y+size*0.1, size*0.45, ...);
+                // We'll shift slightly for depth
+
+                // Note: script.js draws crown at same x,y as trunk.
+                // But normally crown is "above" trunk visually (negative Y in 2D top-down?).
+                // script.js draws them centered on the same point (Top-Down view).
+
+                ctx.fillStyle = "rgba(0,0,0,0.3)";
+                ctx.beginPath(); ctx.arc(size*0.05, size*0.05, size*0.45, 0, Math.PI*2); ctx.fill();
+
+                ctx.fillStyle = crownColor;
+
+                if(species.type === 'palm') {
+                    const leaves = 6;
+                    for(let i=0; i<leaves; i++) {
+                        const angle = (i/leaves)*Math.PI*2 + rng();
+                        const len = size*0.6;
+                        ctx.beginPath();
+                        ctx.moveTo(0,0);
+                        // quadraticCurveTo relative to 0,0
+                        // cp: x+Math.cos(angle)*len*0.5, y+Math.sin(angle)*len*0.5 - 20
+                        const cpx = Math.cos(angle)*len*0.5;
+                        const cpy = Math.sin(angle)*len*0.5 - 20; // -20 gives it 'lift' in Y?
+                        const ex = Math.cos(angle)*len;
+                        const ey = Math.sin(angle)*len;
+
+                        ctx.quadraticCurveTo(cpx, cpy, ex, ey);
+                        ctx.lineWidth = size*0.05;
+                        ctx.strokeStyle = crownColor;
+                        ctx.stroke();
+                    }
+                }
+                else if (species.type === 'flat') { // Acacia
+                    const blobs = 5;
+                    for(let i=0; i<blobs; i++) {
+                        const angle = (i/blobs)*Math.PI*2;
+                        const dist = size*0.3;
+                        ctx.beginPath();
+                        ctx.ellipse(Math.cos(angle)*dist, Math.sin(angle)*dist, size*0.2, size*0.15, 0, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
+                else {
+                    // Standard lobes
+                    const blobs = 10 + Math.floor(rng()*5);
+                    for(let i=0; i<blobs; i++) {
+                        const ang = rng()*Math.PI*2;
+                        const dist = rng()*size*0.3;
+                        const rad = size*(0.15+rng()*0.1);
+                        ctx.beginPath();
+                        ctx.arc(Math.cos(ang)*dist, Math.sin(ang)*dist, rad, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                    ctx.beginPath(); ctx.arc(0,0,size*0.25, 0, Math.PI*2); ctx.fill();
+                }
+            }
 
         } else if (this.state === 'fallen') {
-            // Fallen trunk
-            ctx.rotate(Math.PI / 2); // Sideways
-            ctx.fillStyle = '#5d4037';
-            ctx.fillRect(-40, -6, 80, 12);
-
-            // Withered leaves
-            ctx.fillStyle = '#558b2f';
-            ctx.beginPath(); ctx.arc(-50, 0, 20, 0, Math.PI*2); ctx.fill();
+            // Simplified fallen state
+            ctx.rotate(Math.PI / 2);
+            ctx.fillStyle = species.trunkColor;
+            ctx.fillRect(-trunkW, -trunkW/4, trunkW*2, trunkW/2);
         } else if (this.state === 'logs') {
-            // Logs scattered
-            ctx.fillStyle = '#5d4037';
+            ctx.fillStyle = species.trunkColor;
             ctx.strokeStyle = '#3e2723';
-
-            // Log 1
-            ctx.beginPath(); ctx.rect(-20, -10, 15, 8); ctx.fill(); ctx.stroke();
-            // Log 2
-            ctx.beginPath(); ctx.rect(5, 5, 15, 8); ctx.fill(); ctx.stroke();
-            // Log 3
-            ctx.beginPath(); ctx.rect(-10, 10, 15, 8); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.rect(-10, -5, 8, 4); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.rect(5, 5, 8, 4); ctx.fill(); ctx.stroke();
         }
 
         ctx.restore();
@@ -164,8 +254,6 @@ export class Tree extends GameObject {
 
     getActions(character) {
         const actions = [];
-
-        // Check for Axe in hands
         const hasAxe = (character.inventory.hands.left && character.inventory.hands.left.id.includes('axe')) ||
                        (character.inventory.hands.right && character.inventory.hands.right.id.includes('axe'));
 
@@ -173,10 +261,7 @@ export class Tree extends GameObject {
             if (hasAxe) {
                 actions.push({
                     label: 'Zetnij (🪓)',
-                    action: () => {
-                        this.state = 'fallen';
-                        return 'update';
-                    }
+                    action: () => { this.state = 'fallen'; return 'update'; }
                 });
             } else {
                 actions.push({
@@ -188,51 +273,98 @@ export class Tree extends GameObject {
             if (hasAxe) {
                 actions.push({
                     label: 'Porąb (🪓)',
-                    action: () => {
-                        this.state = 'logs';
-                        return 'update';
-                    }
+                    action: () => { this.state = 'logs'; return 'update'; }
                 });
             }
         } else if (this.state === 'logs') {
              actions.push({
                 label: 'Zbierz Drewno (🫳)',
                 action: () => {
-                    const item = new Item(`wood_${Date.now()}`, `Drewno`, 'resource', 2.0, '🪵');
-                    if (character.inventory.addItem(item)) {
-                        // In a real game, maybe multiple logs. Here, we consume the pile.
-                        return 'remove';
-                    }
+                    const item = new Item(`wood_${Date.now()}`, `Drewno (${this.species.name})`, 'resource', 2.0, '🪵');
+                    if (character.inventory.addItem(item)) { return 'remove'; }
                 }
             });
         }
-
         return actions;
     }
 }
 
 export class Bush extends GameObject {
-    constructor(x, y) {
+    constructor(x, y, species, seed, size) {
         super(x, y, 'bush');
-        this.fruits = 3; // Number of berries
+        this.species = species || { name: "Jagody", colors: ["#2e7d32"], size: [60, 100], type: 'bush_dots', aquatic: false };
+        this.seed = seed || Date.now();
+        this.size = size || 60; // Default or passed
+        this.fruits = 3; // Logic for berries logic, maybe only for specific species?
+        // Only berry bushes have fruits for now
+        this.hasFruits = (this.species.id === 'berry' || this.species.name === 'Jagody');
     }
 
     render(ctx) {
+        const rng = mulberry32(this.seed);
+        const species = this.species;
+        const size = this.size;
+
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Bush body
-        ctx.fillStyle = '#1b5e20';
-        ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-8, -5, 12, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(8, 5, 12, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = species.colors[0];
 
-        // Fruits
-        if (this.fruits > 0) {
-            ctx.fillStyle = '#9c27b0'; // Berries
-            for(let i=0; i<this.fruits; i++) {
-                const angle = (Math.PI * 2 * i) / 3;
-                ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
+        if(species.type === 'reeds') {
+            // Draw multiple stalks
+            const c = species.colors[Math.floor(rng()*species.colors.length)];
+            ctx.fillStyle = c;
+            for(let i=0; i<8; i++) {
+                const h = size * (0.6 + rng()*0.5);
+                const ox = (rng()-0.5)*size*0.5;
+                const oy = 0; // Base at center
+                // In script.js: ctx.fillRect(x + (rng()-0.5)*size*0.5, y, 3, -h);
+                // Here: relative to 0,0
+                ctx.fillRect(ox, oy, 3, -h);
+                // Reed head
+                if(rng()>0.5) {
+                    ctx.fillStyle = "#5d4037";
+                    ctx.fillRect(ox - 1, oy - h, 5, 10);
+                    ctx.fillStyle = c;
+                }
+            }
+        }
+        else if(species.type === 'lily') {
+            ctx.beginPath();
+            ctx.arc(0, 0, size*0.4, 0.2 * Math.PI, 1.8 * Math.PI);
+            ctx.lineTo(0, 0);
+            ctx.fill();
+            if(rng()>0.6) {
+                ctx.fillStyle = "#f8bbd0";
+                ctx.beginPath(); ctx.arc(0, 0, size*0.15, 0, Math.PI*2); ctx.fill();
+            }
+        }
+        else if(species.type === 'fern') {
+            const leaves = 7;
+            ctx.beginPath();
+            for(let i=0; i<leaves; i++) {
+                const angle = (i/leaves) * Math.PI*2;
+                const lLen = size*0.5;
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(angle)*lLen, Math.sin(angle)*lLen);
+                // Simplify curve for canvas
+                // ctx.lineTo(Math.cos(angle+0.2)*lLen*0.8, Math.sin(angle+0.2)*lLen*0.8);
+            }
+            // Use stroke for fern lines or fill polygon?
+            // script.js uses fill() on a path that goes move->line->line. It creates triangles.
+            ctx.fill();
+        }
+        else {
+            // Standard bush
+            ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
+
+            // Fruits
+            if (this.hasFruits && this.fruits > 0) {
+                ctx.fillStyle = '#9c27b0';
+                for(let i=0; i<this.fruits; i++) {
+                    const angle = (Math.PI * 2 * i) / 3;
+                    ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
+                }
             }
         }
 
@@ -241,7 +373,7 @@ export class Bush extends GameObject {
 
     getActions(character) {
         const actions = [];
-        if (this.fruits > 0) {
+        if (this.hasFruits && this.fruits > 0) {
             actions.push({
                 label: 'Zbierz (🫳)',
                 action: () => {
@@ -251,15 +383,12 @@ export class Bush extends GameObject {
                     return 'update';
                 }
             });
-            actions.push({
-                label: 'Zjedz (🫐)',
-                action: () => {
-                    this.fruits--;
-                    // Update stats directly
-                    character.stats.hunger = Math.max(0, character.stats.hunger - 10);
-                    character.stats.energy = Math.min(100, character.stats.energy + 5);
-                    return 'update';
-                }
+        }
+        // General action for others?
+        if (this.species.type === 'reeds') {
+             actions.push({
+                label: 'Zbadaj',
+                action: () => { console.log("To jest trzcina."); }
             });
         }
         return actions;
