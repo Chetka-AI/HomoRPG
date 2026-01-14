@@ -137,14 +137,14 @@ class Game {
         };
     }
 
-    showContextMenu(screenX, screenY, object) {
+    showContextMenu(screenX, screenY, object, customActions = null) {
         const menu = document.getElementById('context-menu');
         menu.style.display = 'block';
         menu.style.left = screenX + 'px';
         menu.style.top = screenY + 'px';
 
         menu.innerHTML = '';
-        const actions = object.getActions(this.player);
+        const actions = customActions || object.getActions(this.player);
 
         if (actions.length === 0) {
             menu.innerHTML = '<div style="color:#aaa; padding:5px;">Brak akcji</div>';
@@ -225,7 +225,33 @@ class Game {
                     this.lastEvent = "Too far to interact!";
                 }
             } else {
-                this.hideContextMenu();
+                // Check if clicking on Water
+                if (this.world.checkCollision(pressWorldPos.x, pressWorldPos.y)) {
+                    // checkCollision returns true for water (or unloaded chunks, but usually water).
+                    // This is a bit simplistic as collision could be a wall, but for now map only has Water as blocked tiles.
+                    // Ideally we should check if it's actually water.
+                    // But checkCollision logic is: isWater = true.
+                    // And we checked Objects first. So if collision is true and no object, it's Water (or off-map).
+
+                    const dist = Math.hypot(pressWorldPos.x - this.player.x, pressWorldPos.y - this.player.y);
+                    if (dist < 80) {
+                        this.showContextMenu(inputState.longPress.x, inputState.longPress.y, null, [
+                            {
+                                label: 'Pij (💧)',
+                                action: () => {
+                                    this.player.stats.drink(20);
+                                    console.log("Drinking water...");
+                                    return 'update';
+                                }
+                            }
+                        ]);
+                    } else {
+                         this.lastEvent = "Too far to drink!";
+                         this.hideContextMenu();
+                    }
+                } else {
+                    this.hideContextMenu();
+                }
             }
         } else {
              if (inputState.active) {

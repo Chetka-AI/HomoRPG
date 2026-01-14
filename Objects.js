@@ -59,12 +59,21 @@ export class GameObject {
 }
 
 export class Stone extends GameObject {
-    constructor(x, y, size) { // size: 'small', 'medium', 'large'
+    constructor(x, y, size) { // size: number | string
         super(x, y, 'stone');
         this.size = size;
-        this.radius = size === 'small' ? 10 : (size === 'medium' ? 15 : 25);
-        this.mass = size === 'small' ? 1.0 : (size === 'medium' ? 5.0 : 20.0);
-        this.color = size === 'small' ? '#a8a8a8' : (size === 'medium' ? '#808080' : '#505050');
+
+        if (typeof size === 'number') {
+            this.radius = size;
+        } else {
+            this.radius = size === 'small' ? 10 : (size === 'medium' ? 15 : 25);
+        }
+
+        // Mass based on size approx (volume)
+        // r=10 -> mass=1, r=25 -> mass=15
+        this.mass = Math.pow(this.radius / 10, 3);
+
+        this.color = this.radius <= 10 ? '#a8a8a8' : (this.radius <= 15 ? '#808080' : '#505050');
 
         // Random shape variation
         this.points = [];
@@ -100,7 +109,7 @@ export class Stone extends GameObject {
             actions.push({
                 label: 'Weź (🫳)',
                 action: () => {
-                    const item = new Item(`stone_${Date.now()}`, `${this.size} Kamień`, 'resource', this.mass, '🪨');
+                    const item = new Item(`stone_${Date.now()}`, `Kamień (${Math.round(this.mass)}kg)`, 'resource', this.mass, '🪨');
                     if (character.inventory.addItem(item)) {
                         return 'remove'; // Signal to remove from world
                     }
@@ -460,6 +469,21 @@ export class Bush extends GameObject {
             // script.js uses fill() on a path that goes move->line->line. It creates triangles.
             ctx.fill();
         }
+        else if(species.type === 'flower') {
+            // Pansies/Flowers
+            const petals = 5;
+            for(let i=0; i<petals; i++) {
+                ctx.fillStyle = species.colors[i % species.colors.length];
+                ctx.beginPath();
+                const ang = (i/petals)*Math.PI*2;
+                const r = size*0.4;
+                ctx.arc(Math.cos(ang)*r*0.6, Math.sin(ang)*r*0.6, r*0.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+            // Center
+            ctx.fillStyle = "#ffeb3b";
+            ctx.beginPath(); ctx.arc(0,0,size*0.15,0,Math.PI*2); ctx.fill();
+        }
         else {
             // Standard bush
             ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
@@ -484,7 +508,14 @@ export class Bush extends GameObject {
                 label: 'Zbierz (🫳)',
                 action: () => {
                     this.fruits--;
-                    const item = new Item(`berry_${Date.now()}`, `Jagody`, 'food', 0.1, '🫐');
+                    const item = new Item(
+                        `berry_${Date.now()}`,
+                        `Jagody`,
+                        'food',
+                        0.1,
+                        '🫐'
+                    );
+                    item.stats = { nutrition: 10, hydration: 5 }; // Add stats to item
                     character.inventory.addItem(item);
                     return 'update';
                 }

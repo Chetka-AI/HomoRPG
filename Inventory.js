@@ -5,6 +5,7 @@ export class Item {
         this.type = type; // 'tool', 'resource', 'food'
         this.weight = weight;
         this.icon = icon; // Emoji or image URL
+        this.stats = null; // { nutrition: 10, hydration: 5 }
     }
 }
 
@@ -67,6 +68,21 @@ export class Inventory {
         return false;
     }
 
+    consumeItem(item) {
+        if (!item) return;
+
+        if (item.type === 'food' && item.stats) {
+            if (item.stats.nutrition) this.stats.eat(item.stats.nutrition);
+            if (item.stats.hydration) this.stats.drink(item.stats.hydration);
+
+            // Remove 1 unit. For now items are unique instances, so just remove.
+            this.removeItem(item);
+            console.log(`Consumed ${item.name}`);
+        } else {
+            console.log("Cannot consume this.");
+        }
+    }
+
     toggle() {
         this.isOpen = !this.isOpen;
         const panel = document.getElementById('inventory-panel');
@@ -93,9 +109,6 @@ export class Inventory {
         // Setup Drag Events on container
         const container = document.getElementById('inventory-container');
         if (!container) return;
-
-        // Simplified Drag & Drop logic placeholder
-        // In a real implementation, we'd add event listeners to slots
     }
 
     render() {
@@ -148,6 +161,18 @@ export class Inventory {
                 e.dataTransfer.setData('text/plain', JSON.stringify({ type, index }));
                 e.dataTransfer.effectAllowed = 'move';
             });
+
+            // Interaction: Double Click to Consume
+            div.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                this.consumeItem(item);
+            });
+
+            // Interaction: Long Press (Simulated via simple timeout or separate handler)
+            // Since this is DOM, we can just use dblclick for now which is standard for desktop.
+            // For touch, dblclick might be hard. Let's add a simple click listener that checks modifiers?
+            // Or rely on the context menu logic if we want to add that later.
+            // "Actions" are requested.
         }
 
         // Drop Zone
@@ -167,9 +192,6 @@ export class Inventory {
             const data = JSON.parse(e.dataTransfer.getData('text/plain'));
             this.handleMove(data.type, data.index, type, index);
         });
-
-        // Touch support would require more complex logic (Touch API), skipping for brevity in this step,
-        // relying on Mouse/Touch simulation or Mouse events which often map to Touch on some devices.
 
         return div;
     }

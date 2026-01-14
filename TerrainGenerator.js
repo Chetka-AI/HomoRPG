@@ -232,12 +232,19 @@ export const SHRUB_SPECIES = {
     dry_bush: { name: "Suche krzaki", colors: ["#a1887f"], size: [70, 110], type: 'tuft', aquatic: false },
     reeds: { name: "Trzcina", colors: ["#dce775", "#c0ca33"], size: [60, 100], type: 'reeds', aquatic: true },
     lilypad: { name: "Lilia wodna", colors: ["#81c784"], size: [40, 60], type: 'lily', aquatic: true },
-    succulent: { name: "Sukulenty", colors: ["#80cbc4"], size: [30, 50], type: 'bush_dots', aquatic: false }
+    succulent: { name: "Sukulenty", colors: ["#80cbc4"], size: [30, 50], type: 'bush_dots', aquatic: false },
+    flower_pansy: { name: "Bratki", colors: ["#e91e63", "#9c27b0", "#ffeb3b"], size: [20, 30], type: 'flower', aquatic: false }
+};
+
+export const STONE_SPECIES = {
+    small: { name: "Mały Kamień", size: 10 },
+    medium: { name: "Średni Kamień", size: 15 },
+    large: { name: "Głaz", size: 25 }
 };
 
 // 3. BIOME DEFINITIONS
 export const BIOME_CONFIG = {
-    marine: { name: "Ocean", terrain: {base:"#0277bd"}, waterThreshold: 0.0, trees: [], shrubs: [] },
+    marine: { name: "Ocean", terrain: {base:"#0277bd"}, waterThreshold: 0.0, trees: [], shrubs: [], stones: [] },
 
     temperate_deciduous: {
         name: "Las Liściasty",
@@ -251,7 +258,8 @@ export const BIOME_CONFIG = {
             {id: 'poplar', chance: 0.05},
             {id: 'linden', chance: 0.05}
         ],
-        shrubs: [{id: 'fern', chance: 0.3}, {id: 'berry', chance: 0.2}],
+        shrubs: [{id: 'fern', chance: 0.3}, {id: 'berry', chance: 0.2}, {id: 'flower_pansy', chance: 0.1}],
+        stones: [{id: 'small', chance: 0.02}, {id: 'medium', chance: 0.01}],
         density: 0.05
     },
 
@@ -267,6 +275,7 @@ export const BIOME_CONFIG = {
             {id: 'birch', chance: 0.05} // Birches also appear in cold climates
         ],
         shrubs: [{id: 'fern', chance: 0.1}, {id: 'berry', chance: 0.2}],
+        stones: [{id: 'large', chance: 0.02}, {id: 'medium', chance: 0.02}],
         density: 0.07
     },
 
@@ -280,7 +289,8 @@ export const BIOME_CONFIG = {
             {id: 'banana', chance: 0.4},
             {id: 'baobab', chance: 0.05}
         ],
-        shrubs: [{id: 'fern', chance: 0.6}, {id: 'lilypad', chance: 0.3}],
+        shrubs: [{id: 'fern', chance: 0.6}, {id: 'lilypad', chance: 0.3}, {id: 'flower_pansy', chance: 0.1}],
+        stones: [{id: 'medium', chance: 0.01}],
         density: 0.1
     },
 
@@ -290,6 +300,7 @@ export const BIOME_CONFIG = {
         waterThreshold: 0.98,
         trees: [{id: 'cactus', chance: 0.05}, {id: 'palm', chance: 0.01}],
         shrubs: [{id: 'succulent', chance: 0.1}, {id: 'dry_bush', chance: 0.2}],
+        stones: [{id: 'small', chance: 0.05}],
         density: 0.005
     },
 
@@ -299,6 +310,7 @@ export const BIOME_CONFIG = {
         waterThreshold: 0.85,
         trees: [{id: 'acacia', chance: 0.7}, {id: 'baobab', chance: 0.25}, {id: 'palm', chance: 0.05}],
         shrubs: [{id: 'dry_bush', chance: 0.4}],
+        stones: [{id: 'medium', chance: 0.01}],
         density: 0.015
     },
 
@@ -311,7 +323,8 @@ export const BIOME_CONFIG = {
             {id: 'mangrove', chance: 0.3},
             {id: 'poplar', chance: 0.1}
         ],
-        shrubs: [{id: 'reeds', chance: 0.8}, {id: 'lilypad', chance: 0.4}],
+        shrubs: [{id: 'reeds', chance: 0.8}, {id: 'lilypad', chance: 0.4}, {id: 'flower_pansy', chance: 0.05}],
+        stones: [{id: 'small', chance: 0.01}],
         density: 0.03
     }
 };

@@ -1,5 +1,5 @@
 import { Tree, Bush, Stone, World as BaseWorld } from './Objects.js';
-import { getBiomeData, smoothNoise, mulberry32, TREE_SPECIES, SHRUB_SPECIES } from './TerrainGenerator.js';
+import { getBiomeData, smoothNoise, mulberry32, TREE_SPECIES, SHRUB_SPECIES, STONE_SPECIES } from './TerrainGenerator.js';
 
 const TILE_SIZE = 100;
 const CHUNK_SIZE_TILES = 10;
@@ -108,7 +108,7 @@ class Chunk {
                     }
                 }
 
-                // Bushes
+                // Bushes (Shrubs)
                 let shrubChance = 0.15;
                 if(cellRng() < shrubChance && this.biome.shrubs && this.biome.shrubs.length > 0) {
                     const sDef = this.biome.shrubs[Math.floor(cellRng()*this.biome.shrubs.length)];
@@ -122,6 +122,29 @@ class Chunk {
                             const wy = this.y + oy;
                             const size = species.size[0] + cellRng()*(species.size[1]-species.size[0]);
                             this.objects.push(new Bush(wx, wy, species, cellSeed + 1, size));
+                        }
+                    }
+                }
+
+                // Stones
+                // Small chance for stones per tile, higher in some biomes (configured in config)
+                let stoneChance = 0.03;
+                // Using a different RNG stream or offset to decouple from trees/bushes
+                const stoneRng = mulberry32(cellSeed + 999);
+
+                if (stoneRng() < stoneChance && this.biome.stones && this.biome.stones.length > 0 && !isWater) {
+                    const stDef = this.biome.stones[Math.floor(stoneRng() * this.biome.stones.length)];
+                    // If stone definition has a chance, check it
+                    if (!stDef.chance || stoneRng() < stDef.chance * 5.0) { // Multiplier to normalize low config chances
+                        const species = STONE_SPECIES[stDef.id];
+                        if (species) {
+                             if (cx >= 0 && cx < CHUNK_SIZE_TILES && cy >= 0 && cy < CHUNK_SIZE_TILES) {
+                                const ox = (cx*TILE_SIZE) + stoneRng()*90;
+                                const oy = (cy*TILE_SIZE) + stoneRng()*90;
+                                const wx = this.x + ox;
+                                const wy = this.y + oy;
+                                this.objects.push(new Stone(wx, wy, species.size));
+                            }
                         }
                     }
                 }

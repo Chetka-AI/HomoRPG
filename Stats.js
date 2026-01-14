@@ -36,20 +36,28 @@ export class CharacterStats {
         };
     }
 
+    // --- ACTIONS ---
+    eat(amount) {
+        this.hunger = Math.max(0, this.hunger - amount);
+        this.energy = Math.min(100, this.energy + amount * 0.1); // Eating gives a little energy
+    }
+
+    drink(amount) {
+        this.thirst = Math.max(0, this.thirst - amount);
+        this.toilet = Math.min(100, this.toilet + amount * 0.2); // Drinking increases toilet need
+    }
+
     update(dt, state, velocityMagnitude) {
         // dt in seconds
         const dts = dt / 1000.0;
 
         // --- 1. TIME DECAY (Needs & Energy) ---
-        // Needs increase over time
-        // Rates per second.
-        // Hunger: 100 / (20 mins * 60) = ~0.08/sec (Game time might be faster?)
-        // Let's assume 1 real second = 1 game minute? Or just arbitrary fast pace for testing.
-        // Let's go with visible rates for now.
-        const hungerRate = 0.5; // reaches 100 in 200s
-        const thirstRate = 0.8; // reaches 100 in 125s
-        const toiletRate = 0.3;
-        const energyDrain = 0.2; // drops to 0 in 500s
+        // Needs increase over time.
+        // 10x slower than before.
+        const hungerRate = 0.05;
+        const thirstRate = 0.08;
+        const toiletRate = 0.03;
+        const energyDrain = 0.02;
 
         this.hunger = Math.min(100, this.hunger + hungerRate * dts);
         this.thirst = Math.min(100, this.thirst + thirstRate * dts);
