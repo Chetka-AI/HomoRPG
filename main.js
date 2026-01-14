@@ -1,5 +1,6 @@
 import { InputController, PhysicsController, Pathfinder } from './Mechanics.js';
 import { Character } from './Character.js';
+import { World, Stone, Tree, Bush } from './Objects.js';
 
 class Game {
     constructor() {
@@ -16,6 +17,9 @@ class Game {
         // Initialize Pathfinder with bound collision check
         this.pathfinder = new Pathfinder((x, y) => this.checkCollision(x, y));
         
+        this.world = new World();
+        this.initWorld();
+
         this.player = new Character(0, 0);
 
         this.camera = { x: 0, y: 0, zoom: 1.0, rotation: 0 };
@@ -48,6 +52,19 @@ class Game {
         this.loop();
     }
 
+    initWorld() {
+        // Add requested objects
+        this.world.add(new Stone(100, -100, 'small'));
+        this.world.add(new Stone(150, -120, 'medium'));
+        this.world.add(new Stone(200, -100, 'large'));
+
+        this.world.add(new Tree(-100, -100));
+        this.world.add(new Tree(-150, -150));
+
+        this.world.add(new Bush(50, 50));
+        this.world.add(new Bush(-50, 50));
+    }
+
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
@@ -58,7 +75,9 @@ class Game {
             y < this.worldBounds.minY || y > this.worldBounds.maxY) {
             return true;
         }
+        // Basic Static Obstacle
         if (x > 100 && x < 200 && y > 100 && y < 200) return true;
+
         return false;
     }
 
@@ -80,6 +99,46 @@ class Game {
             x: rdx + this.camera.x,
             y: rdy + this.camera.y
         };
+    }
+
+    showContextMenu(screenX, screenY, object) {
+        const menu = document.getElementById('context-menu');
+        menu.style.display = 'block';
+        menu.style.left = screenX + 'px';
+        menu.style.top = screenY + 'px';
+
+        menu.innerHTML = '';
+        const actions = object.getActions(this.player);
+
+        if (actions.length === 0) {
+            menu.innerHTML = '<div style="color:#aaa; padding:5px;">Brak akcji</div>';
+            return;
+        }
+
+        actions.forEach(act => {
+            const btn = document.createElement('button');
+            btn.className = 'ctx-action';
+            btn.innerText = act.label;
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent canvas click
+                const result = act.action();
+                if (result === 'remove') {
+                    this.world.remove(object);
+                }
+                // 'update' is handled automatically next frame
+                this.hideContextMenu();
+            });
+            // Stop propagation on touchstart to prevent joystick/map interaction
+            btn.addEventListener('touchstart', (e) => e.stopPropagation());
+            menu.appendChild(btn);
+        });
+    }
+
+    hideContextMenu() {
+        const menu = document.getElementById('context-menu');
+        if (menu.style.display !== 'none') {
+            menu.style.display = 'none';
+        }
     }
 
     update(dt) {
@@ -113,12 +172,34 @@ class Game {
                 this.lastEvent = "Tap: No path!";
                 this.path = [];
             }
+
+            this.hideContextMenu();
         }
 
         // Handle Long Press
         if (inputState.longPress) {
             this.lastEvent = "Long Press Detected!";
             this.path = []; // Stop moving
+
+            // Interaction Check
+            const pressWorldPos = this.screenToWorld(inputState.longPress.x, inputState.longPress.y);
+            const obj = this.world.getNearestObject(pressWorldPos.x, pressWorldPos.y, 30);
+
+            if (obj) {
+                // Check distance from player to object (Interaction Range)
+                const dist = Math.hypot(obj.x - this.player.x, obj.y - this.player.y);
+                if (dist < 80) { // Interaction range
+                    this.showContextMenu(inputState.longPress.x, inputState.longPress.y, obj);
+                } else {
+                    this.lastEvent = "Too far to interact!";
+                }
+            } else {
+                this.hideContextMenu();
+            }
+        } else {
+             if (inputState.active) {
+                this.hideContextMenu();
+            }
         }
 
         // Determine World Input Vector for Character
@@ -140,7 +221,10 @@ class Game {
             const ix = inputState.x;
             const iy = -inputState.y; // Invert Y for Screen Space
 
-            const r = -this.camera.rotation;
+            // To move "Up" on screen regardless of Camera Rotation:
+            // We need to rotate the Screen Vector by the Camera Rotation to get the World Vector.
+            // (The inverse of the View Matrix rotation).
+            const r = this.camera.rotation;
             const cos = Math.cos(r);
             const sin = Math.sin(r);
 
@@ -201,6 +285,9 @@ class Game {
         this.ctx.fillStyle = '#444';
         this.ctx.fillRect(100, 100, 100, 100);
 
+        // Render World Objects
+        this.world.render(this.ctx);
+
         // Grid - Brighter for visibility
         this.ctx.strokeStyle = '#333'; // Brighter grid lines (was #222)
         this.ctx.lineWidth = 1;
@@ -244,6 +331,14 @@ class Game {
         this.ctx.fillText(`Pos: ${this.player.x.toFixed(1)}, ${this.player.y.toFixed(1)}`, 10, 20);
         this.ctx.fillText(`Event: ${this.lastEvent}`, 10, 40);
         this.ctx.fillText(`Toggle: ${this.isRunToggleOn ? 'Run' : 'Walk'}. Tap (Smart Move).`, 10, 60);
+
+        // Stats Debug
+        if (this.player.getDebugInfo) {
+            const lines = this.player.getDebugInfo().trim().split('\n');
+            lines.forEach((line, i) => {
+                this.ctx.fillText(line, 10, 90 + (i * 15));
+            });
+        }
     }
 
     loop() {
