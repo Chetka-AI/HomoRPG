@@ -1,3 +1,70 @@
+class MinHeap {
+    constructor(scoreFunction) {
+        this.heap = [];
+        this.scoreFunction = scoreFunction;
+    }
+
+    insert(node) {
+        this.heap.push(node);
+        this.bubbleUp(this.heap.length - 1);
+    }
+
+    extractMin() {
+        if (this.isEmpty()) {
+            return null;
+        }
+        this.swap(0, this.heap.length - 1);
+        const min = this.heap.pop();
+        if (!this.isEmpty()) {
+            this.sinkDown(0);
+        }
+        return min;
+    }
+
+    isEmpty() {
+        return this.heap.length === 0;
+    }
+
+    bubbleUp(index) {
+        while (index > 0) {
+            const parentIndex = Math.floor((index - 1) / 2);
+            if (this.scoreFunction(this.heap[index]) < this.scoreFunction(this.heap[parentIndex])) {
+                this.swap(index, parentIndex);
+                index = parentIndex;
+            } else {
+                break;
+            }
+        }
+    }
+
+    sinkDown(index) {
+        const leftChildIndex = 2 * index + 1;
+        const rightChildIndex = 2 * index + 2;
+        let smallest = index;
+
+        if (leftChildIndex < this.heap.length && this.scoreFunction(this.heap[leftChildIndex]) < this.scoreFunction(this.heap[smallest])) {
+            smallest = leftChildIndex;
+        }
+        if (rightChildIndex < this.heap.length && this.scoreFunction(this.heap[rightChildIndex]) < this.scoreFunction(this.heap[smallest])) {
+            smallest = rightChildIndex;
+        }
+
+        if (smallest !== index) {
+            this.swap(index, smallest);
+            this.sinkDown(smallest);
+        }
+    }
+
+    swap(i, j) {
+        [this.heap[i], this.heap[j]] = [this.heap[j], this.heap[i]];
+    }
+
+    contains(node) {
+        return this.heap.includes(node);
+    }
+}
+
+
 /**
  * NewMechanics.js
  * 
@@ -424,66 +491,63 @@ export class Pathfinder {
     }
 
     findPath(start, end) {
-        // Convert world to grid
         const startNode = this.worldToGrid(start.x, start.y);
         const endNode = this.worldToGrid(end.x, end.y);
 
-        const openSet = [];
-        const closedSet = new Set();
-        const cameFrom = new Map();
+        const key = (n) => `${n.x},${n.y}`;
 
         const gScore = new Map();
         const fScore = new Map();
 
-        const key = (n) => `${n.x},${n.y}`;
+        const openSet = new MinHeap(node => fScore.get(key(node)) || Infinity);
 
-        openSet.push(startNode);
+        const closedSet = new Set();
+        const cameFrom = new Map();
+
         gScore.set(key(startNode), 0);
         fScore.set(key(startNode), this.heuristic(startNode, endNode));
+        openSet.insert(startNode);
 
         let iterations = 0;
-        const maxIterations = 2000; // Safety break
+        const maxIterations = 2000;
 
-        while (openSet.length > 0) {
-            if (iterations++ > maxIterations) break;
+        while (!openSet.isEmpty()) {
+            if (iterations++ > maxIterations) {
+                console.warn("Pathfinder reached max iterations");
+                return null;
+            }
 
-            // Get node with lowest fScore
-            openSet.sort((a, b) => (fScore.get(key(a)) || Infinity) - (fScore.get(key(b)) || Infinity));
-            const current = openSet.shift();
+            const current = openSet.extractMin();
+            const currentKey = key(current);
+
+            if (closedSet.has(currentKey)) {
+                continue;
+            }
 
             if (current.x === endNode.x && current.y === endNode.y) {
                 return this.reconstructPath(cameFrom, current);
             }
 
-            closedSet.add(key(current));
+            closedSet.add(currentKey);
 
-            const neighbors = this.getNeighbors(current);
-            for (let neighbor of neighbors) {
+            for (const neighbor of this.getNeighbors(current)) {
                 const neighborKey = key(neighbor);
                 if (closedSet.has(neighborKey)) continue;
 
-                // Check collision at world coordinates
                 const worldPos = this.gridToWorld(neighbor.x, neighbor.y);
-                if (this.checkCollision(worldPos.x, worldPos.y)) continue;
+                if (this.checkCollision(worldPos.x, worldPos.y)) {
+                    closedSet.add(neighborKey);
+                    continue;
+                }
 
                 const dist = (neighbor.x !== current.x && neighbor.y !== current.y) ? 1.414 : 1;
+                const tentativeG = (gScore.get(currentKey) || 0) + dist;
 
-                let currentG = gScore.get(key(current));
-                if (currentG === undefined) currentG = Infinity;
-
-                const tentativeG = currentG + dist;
-
-                let neighborG = gScore.get(neighborKey);
-                if (neighborG === undefined) neighborG = Infinity;
-
-                if (tentativeG < neighborG) {
+                if (tentativeG < (gScore.get(neighborKey) || Infinity)) {
                     cameFrom.set(neighborKey, current);
                     gScore.set(neighborKey, tentativeG);
                     fScore.set(neighborKey, tentativeG + this.heuristic(neighbor, endNode));
-
-                    if (!openSet.some(n => n.x === neighbor.x && n.y === neighbor.y)) {
-                        openSet.push(neighbor);
-                    }
+                    openSet.insert(neighbor);
                 }
             }
         }
