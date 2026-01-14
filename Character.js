@@ -1,3 +1,5 @@
+import { CharacterStats } from './Stats.js';
+
 export class Character {
     constructor(x, y) {
         // Position & Dimensions
@@ -10,8 +12,13 @@ export class Character {
         this.velocity = { x: 0, y: 0 };
         this.friction = 0.82; // Determines how fast we stop (0.0 - 1.0)
         this.acceleration = 1.2; // How fast we speed up
-        this.baseSpeed = 5.0;
+
+        // Speed reduced by 50% as requested (was 5.0)
+        this.baseSpeed = 2.5;
         this.sprintMultiplier = 1.6;
+
+        // Stats System
+        this.stats = new CharacterStats();
 
         // State Machine
         this.state = 'IDLE'; // IDLE, WALK, RUN
@@ -24,9 +31,25 @@ export class Character {
     update(dt, inputVector, isSprinting, collisionCheck) {
         // inputVector is expected to be {x, y} normalized world direction
 
+        // 0. Update Stats
+        // Check if we can sprint
+        const canSprint = this.stats.canSprint();
+        const actualSprint = isSprinting && canSprint;
+
         // 1. Determine Target Speed & Acceleration
         const isMoving = (inputVector.x !== 0 || inputVector.y !== 0);
-        const currentMaxSpeed = this.baseSpeed * (isSprinting ? this.sprintMultiplier : 1.0);
+        const currentMaxSpeed = this.baseSpeed * (actualSprint ? this.sprintMultiplier : 1.0);
+
+        // Update Vital Stats
+        // Velocity magnitude for accurate calorie burn approximation
+        const speed = Math.hypot(this.velocity.x, this.velocity.y);
+
+        // Determine state for stats
+        let statState = 'IDLE';
+        if (isMoving) {
+            statState = actualSprint ? 'RUN' : 'WALK';
+        }
+        this.stats.update(dt, statState, speed);
 
         // 2. Apply Acceleration
         if (isMoving) {
@@ -36,7 +59,7 @@ export class Character {
             // Update Rotation to face movement direction
             this.rotation = Math.atan2(inputVector.y, inputVector.x);
 
-            this.state = isSprinting ? 'RUN' : 'WALK';
+            this.state = actualSprint ? 'RUN' : 'WALK';
         } else {
             this.state = 'IDLE';
         }
@@ -212,6 +235,23 @@ export class Character {
         ctx.beginPath();
         ctx.arc(rightHandX + 2, this.radius + 4, 4, 0, Math.PI*2);
         ctx.fill();
+
+        ctx.restore();
+
+        // --- STAMINA BAR (In World Space, above head) ---
+        // Don't rotate with character
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        // No rotation here
+
+        // Bar bg
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(-20, -30, 40, 5);
+
+        // Bar fg
+        const pct = this.stats.currentStamina / this.stats.maxStamina;
+        ctx.fillStyle = pct > 0.3 ? '#00b894' : '#d63031';
+        ctx.fillRect(-19, -29, 38 * pct, 3);
 
         ctx.restore();
     }
