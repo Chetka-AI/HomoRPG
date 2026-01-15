@@ -166,6 +166,7 @@ export class WorldManager {
         this.heightCanvas = document.createElement('canvas');
         this.heightCtx = null;
         this.mapsLoaded = false;
+        this.renderedObjects = [];
 
         this.loadingPromise = this.loadGlobalMaps();
     }
@@ -287,13 +288,13 @@ export class WorldManager {
         }
 
         // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        let allObjects = [];
+        this.renderedObjects = [];
         for (const chunk of this.activeChunks.values()) {
-            allObjects = allObjects.concat(chunk.objects);
+            this.renderedObjects = this.renderedObjects.concat(chunk.objects);
         }
-        allObjects.sort((a, b) => a.y - b.y);
+        this.renderedObjects.sort((a, b) => a.y - b.y);
 
-        for (const obj of allObjects) {
+        for (const obj of this.renderedObjects) {
             // Standard render method (Trunk only for trees, Full for others)
             obj.render(ctx);
         }
@@ -303,17 +304,10 @@ export class WorldManager {
         if (!this.mapsLoaded) return;
 
         // Render Crowns (Upper Layer)
-        // We can reuse the collected objects from renderBottom if we optimized,
-        // but collecting again is safer/easier for now.
-        let allObjects = [];
-        for (const chunk of this.activeChunks.values()) {
-            allObjects = allObjects.concat(chunk.objects);
-        }
-        // Crowns also need depth sorting relative to each other?
-        // Yes, generally.
-        allObjects.sort((a, b) => a.y - b.y);
+        // Using optimized collection from renderBottom
+        const objectsToRender = this.renderedObjects || [];
 
-        for (const obj of allObjects) {
+        for (const obj of objectsToRender) {
             if (obj.renderCrown) {
                 obj.renderCrown(ctx, player);
             }
