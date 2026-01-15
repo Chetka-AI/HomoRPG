@@ -26,7 +26,7 @@ export class CharacterStats {
         this.xp = {
             strength: 0,
             endurance: 0,
-            speed: 0
+            speedStat: 0
         };
 
         // --- CONFIGURATION ---
@@ -136,8 +136,29 @@ export class CharacterStats {
     }
 
     train(stat, amount) {
-        // Simple linear progression for now
-        this[stat] = Math.min(100, this[stat] + amount);
+        // Non-linear progression system
+        if (this[stat] >= 100) return;
+
+        // Accumulate XP
+        this.xp[stat] += amount;
+
+        // Check for level up
+        let cost = this.getLevelCost(this[stat]);
+        while (this.xp[stat] >= cost && this[stat] < 100) {
+            this.xp[stat] -= cost;
+            this[stat]++;
+            // Recalculate cost for next level if we leveled up multiple times
+            cost = this.getLevelCost(this[stat]);
+        }
+
+        // Hard cap
+        if (this[stat] > 100) this[stat] = 100;
+    }
+
+    getLevelCost(level) {
+        // Curve: Harder to level up as you get stronger.
+        // Formula: 100 * (level / 50)^4
+        return 100 * Math.pow(level / 50.0, 4);
     }
 
     // Derived Metric for Character.js
