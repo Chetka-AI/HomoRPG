@@ -162,43 +162,11 @@ export class Tree extends GameObject {
         ctx.translate(this.x, this.y);
 
         if (this.state === 'standing') {
-             // Transparency Logic for Canopy
-            if (player) {
-                const dist = Math.hypot(this.x - player.x, this.y - player.y);
-                // If tree is "in front" (y > player.y) and close, it might occlude player.
-                if (this.y > player.y && dist < 60) {
-                     ctx.globalAlpha = 0.5;
-                }
-            }
-
-            if (this.image && this.image.complete && this.image.naturalWidth > 0) {
-                const aspect = this.image.naturalWidth / this.image.naturalHeight;
-                const h = this.displayHeight;
-                const w = h * aspect;
-
-                // Sway Animation (Whole tree)
-                const sway = Math.sin(this.time * 2 + this.x * 0.1) * 3;
-
-                // Draw anchored at bottom center
-                ctx.translate(sway, 0);
-                ctx.drawImage(this.image, -w / 2, -h, w, h);
-
-                // Shadow
-                ctx.globalAlpha = 0.3;
-                ctx.fillStyle = 'black';
-                ctx.beginPath();
-                ctx.ellipse(0, 0, w * 0.2, w * 0.1, 0, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                // Fallback placeholder
-                ctx.fillStyle = this.species.crownColors ? this.species.crownColors[0] : 'green';
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(-20, -100);
-                ctx.lineTo(20, -100);
-                ctx.fill();
-            }
-
+             // Draw Trunk Base (Collision visual)
+            ctx.fillStyle = this.species.trunkColor || '#4e342e';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
         } else if (this.state === 'fallen') {
             // Simplified fallen state
             ctx.rotate(Math.PI / 2);
@@ -209,6 +177,36 @@ export class Tree extends GameObject {
             ctx.strokeStyle = '#3e2723';
             ctx.beginPath(); ctx.rect(-10, -5, 8, 4); ctx.fill(); ctx.stroke();
             ctx.beginPath(); ctx.rect(5, 5, 8, 4); ctx.fill(); ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    renderCrown(ctx) {
+        if (this.state !== 'standing') return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        if (this.image && this.image.complete && this.image.naturalWidth > 0) {
+            const aspect = this.image.naturalWidth / this.image.naturalHeight;
+            const h = this.displayHeight;
+            const w = h * aspect;
+
+            // Sway Animation
+            const sway = Math.sin(this.time * 2 + this.x * 0.1) * 3;
+
+            // Draw anchored at bottom center (image represents crown above head)
+            ctx.translate(sway, 0);
+            ctx.drawImage(this.image, -w / 2, -h, w, h);
+        } else {
+            // Fallback placeholder
+            ctx.fillStyle = this.species.crownColors ? this.species.crownColors[0] : 'green';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-20, -100);
+            ctx.lineTo(20, -100);
+            ctx.fill();
         }
 
         ctx.restore();

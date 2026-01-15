@@ -311,10 +311,17 @@ export class WorldManager {
         // Sort by Y for Depth
         objectsToRender.sort((a, b) => a.y - b.y);
 
-        // Render All
+        // Render Base Layer (Trunks, Players, Bushes, Stones)
         for (const obj of objectsToRender) {
             if (obj.render) {
                 obj.render(ctx, player);
+            }
+        }
+
+        // Render Top Layer (Tree Crowns)
+        for (const obj of objectsToRender) {
+            if (obj.renderCrown) {
+                obj.renderCrown(ctx);
             }
         }
     }
