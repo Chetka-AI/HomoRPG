@@ -52,18 +52,27 @@ export class CharacterStats {
         // dt in seconds
         const dts = dt / 1000.0;
 
-        // --- 1. TIME DECAY (Needs & Energy) ---
-        // Needs increase over time.
-        // 10x slower than before.
-        const hungerRate = 0.05;
-        const thirstRate = 0.08;
-        const toiletRate = 0.03;
-        const energyDrain = 0.02;
+        // Game Time Scale: 1 real second = 60 game seconds (1 real minute = 1 game hour)
+        // 24 real minutes = 1 game day
+        const GAME_TIME_SCALE = 60.0;
+        const gameDt = dts * GAME_TIME_SCALE;
 
-        this.hunger = Math.min(100, this.hunger + hungerRate * dts);
-        this.thirst = Math.min(100, this.thirst + thirstRate * dts);
-        this.toilet = Math.min(100, this.toilet + toiletRate * dts);
-        this.energy = Math.max(0, this.energy - energyDrain * dts);
+        // --- 1. TIME DECAY (Needs & Energy) ---
+        // Rates are per GAME SECOND
+        // Hunger: Full (100) in 24 game hours
+        // Thirst: Full (100) in 18 game hours
+        // Toilet: Full (100) in 24 game hours
+        // Energy: Empty (0) in 18 game hours (awake time)
+
+        const hungerRate = 100.0 / (24 * 3600);
+        const thirstRate = 100.0 / (18 * 3600);
+        const toiletRate = 100.0 / (24 * 3600);
+        const energyDrain = 100.0 / (18 * 3600);
+
+        this.hunger = Math.min(100, this.hunger + hungerRate * gameDt);
+        this.thirst = Math.min(100, this.thirst + thirstRate * gameDt);
+        this.toilet = Math.min(100, this.toilet + toiletRate * gameDt);
+        this.energy = Math.max(0, this.energy - energyDrain * gameDt);
 
         // --- 2. HEALTH IMPACT ---
         let healthChange = 0;
