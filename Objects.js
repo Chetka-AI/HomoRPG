@@ -554,14 +554,17 @@ export class Bush extends GameObject {
         else {
             // Standard bush
             ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
+        }
 
-            // Fruits
-            if (this.hasFruits) {
-                ctx.fillStyle = this.species.fruit.color || '#9c27b0';
-                for(let i=0; i<this.fruits; i++) {
-                    const angle = (Math.PI * 2 * i) / 3;
-                    ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
-                }
+        // Fruits
+        if (this.hasFruits) {
+            const fruitDef = this.species.fruit || {};
+            ctx.fillStyle = fruitDef.color || '#9c27b0';
+            const count = this.fruits;
+            const radius = 10;
+            for(let i=0; i<count; i++) {
+                const angle = (Math.PI * 2 * i) / count;
+                ctx.beginPath(); ctx.arc(Math.cos(angle)*radius, Math.sin(angle)*radius, 3, 0, Math.PI*2); ctx.fill();
             }
         }
 
