@@ -467,6 +467,7 @@ export class Bush extends GameObject {
         this.size = size || 60; // Default or passed
 
         this.fruits = 0;
+        // Generalized fruit logic: determines count based on species definition
         if (this.species.fruit) {
              const rng = mulberry32(this.seed + 100);
              const min = this.species.fruit.countRange ? this.species.fruit.countRange[0] : 0;
@@ -561,7 +562,8 @@ export class Bush extends GameObject {
             const fruitDef = this.species.fruit || {};
             ctx.fillStyle = fruitDef.color || '#9c27b0';
             const count = this.fruits;
-            const radius = 10;
+            // Distribute fruits based on bush size
+            const radius = size * 0.3;
             for(let i=0; i<count; i++) {
                 const angle = (Math.PI * 2 * i) / count;
                 ctx.beginPath(); ctx.arc(Math.cos(angle)*radius, Math.sin(angle)*radius, 3, 0, Math.PI*2); ctx.fill();
