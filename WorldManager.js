@@ -287,13 +287,14 @@ export class WorldManager {
         }
 
         // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        let allObjects = [];
+        // Cache sorted objects for renderTop to reuse
+        this._cachedSortedObjects = [];
         for (const chunk of this.activeChunks.values()) {
-            allObjects = allObjects.concat(chunk.objects);
+            this._cachedSortedObjects = this._cachedSortedObjects.concat(chunk.objects);
         }
-        allObjects.sort((a, b) => a.y - b.y);
+        this._cachedSortedObjects.sort((a, b) => a.y - b.y);
 
-        for (const obj of allObjects) {
+        for (const obj of this._cachedSortedObjects) {
             // Standard render method (Trunk only for trees, Full for others)
             obj.render(ctx);
         }
@@ -303,15 +304,17 @@ export class WorldManager {
         if (!this.mapsLoaded) return;
 
         // Render Crowns (Upper Layer)
-        // We can reuse the collected objects from renderBottom if we optimized,
-        // but collecting again is safer/easier for now.
-        let allObjects = [];
-        for (const chunk of this.activeChunks.values()) {
-            allObjects = allObjects.concat(chunk.objects);
+        // Reuse sorted objects from renderBottom if available
+        let allObjects = this._cachedSortedObjects;
+
+        // Fallback if renderBottom wasn't called (though it should be)
+        if (!allObjects) {
+            allObjects = [];
+            for (const chunk of this.activeChunks.values()) {
+                allObjects = allObjects.concat(chunk.objects);
+            }
+            allObjects.sort((a, b) => a.y - b.y);
         }
-        // Crowns also need depth sorting relative to each other?
-        // Yes, generally.
-        allObjects.sort((a, b) => a.y - b.y);
 
         for (const obj of allObjects) {
             if (obj.renderCrown) {
