@@ -299,9 +299,12 @@ export class WorldManager {
         }
 
         // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        this.renderedObjects = [];
+        this.renderedObjects.length = 0;
         for (const chunk of this.activeChunks.values()) {
-            this.renderedObjects = this.renderedObjects.concat(chunk.objects);
+            const objs = chunk.objects;
+            for (let i = 0; i < objs.length; i++) {
+                this.renderedObjects.push(objs[i]);
+            }
         }
         this.renderedObjects.sort((a, b) => a.y - b.y);
 
