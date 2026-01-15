@@ -106,9 +106,68 @@ export class Inventory {
             this.toggle();
         });
 
-        // Setup Drag Events on container
-        const container = document.getElementById('inventory-container');
+        // Setup Drag Events on container (Delegation)
+        const container = document.getElementById('inventory-panel');
         if (!container) return;
+
+        container.addEventListener('dragstart', (e) => {
+            const slot = e.target.closest('.inv-slot');
+            if (!slot || !slot.classList.contains('filled')) return;
+
+            const type = slot.dataset.type;
+            const index = slot.dataset.index;
+
+            e.dataTransfer.setData('text/plain', JSON.stringify({ type, index }));
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        container.addEventListener('dragover', (e) => {
+            const slot = e.target.closest('.inv-slot');
+            if (slot) {
+                e.preventDefault(); // Allow drop
+                e.dataTransfer.dropEffect = 'move';
+                slot.classList.add('drag-over');
+            }
+        });
+
+        container.addEventListener('dragleave', (e) => {
+            const slot = e.target.closest('.inv-slot');
+            if (slot) {
+                slot.classList.remove('drag-over');
+            }
+        });
+
+        container.addEventListener('drop', (e) => {
+            const slot = e.target.closest('.inv-slot');
+            if (slot) {
+                e.preventDefault();
+                slot.classList.remove('drag-over');
+
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                    if (data && data.type && data.index !== undefined) {
+                        this.handleMove(data.type, data.index, slot.dataset.type, slot.dataset.index);
+                    }
+                } catch (err) {
+                    console.error('Invalid drop data', err);
+                }
+            }
+        });
+
+        container.addEventListener('dblclick', (e) => {
+            const slot = e.target.closest('.inv-slot');
+            if (!slot || !slot.classList.contains('filled')) return;
+
+            e.stopPropagation();
+            const type = slot.dataset.type;
+            const index = slot.dataset.index;
+
+            let item = null;
+            if (type === 'slot') item = this.slots[index];
+            else if (type === 'hand') item = this.hands[index];
+
+            this.consumeItem(item);
+        });
     }
 
     render() {
@@ -155,43 +214,7 @@ export class Inventory {
             div.title = `${item.name} (${item.weight}kg)`;
             div.draggable = true;
             div.classList.add('filled');
-
-            // Drag Start
-            div.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', JSON.stringify({ type, index }));
-                e.dataTransfer.effectAllowed = 'move';
-            });
-
-            // Interaction: Double Click to Consume
-            div.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                this.consumeItem(item);
-            });
-
-            // Interaction: Long Press (Simulated via simple timeout or separate handler)
-            // Since this is DOM, we can just use dblclick for now which is standard for desktop.
-            // For touch, dblclick might be hard. Let's add a simple click listener that checks modifiers?
-            // Or rely on the context menu logic if we want to add that later.
-            // "Actions" are requested.
         }
-
-        // Drop Zone
-        div.addEventListener('dragover', (e) => {
-            e.preventDefault(); // Allow drop
-            e.dataTransfer.dropEffect = 'move';
-            div.classList.add('drag-over');
-        });
-
-        div.addEventListener('dragleave', () => {
-            div.classList.remove('drag-over');
-        });
-
-        div.addEventListener('drop', (e) => {
-            e.preventDefault();
-            div.classList.remove('drag-over');
-            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-            this.handleMove(data.type, data.index, type, index);
-        });
 
         return div;
     }
