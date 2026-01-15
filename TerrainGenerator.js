@@ -46,6 +46,7 @@ const PLANT_ARCHETYPES = {
     // Round/Lobed trees (Oak, Maple)
     deciduous: {
         type: 'lobes',
+        imagePath: 'assets/trees/tree_01.png',
         trunkColor: "#4e342e",
         trunkSize: [35, 60],
         crownColors: ["#2e7d32", "#1b5e20"],
@@ -56,6 +57,7 @@ const PLANT_ARCHETYPES = {
     // Conifers (Spruce, Pine)
     conifer: {
         type: 'layered_triangles',
+        imagePath: 'assets/trees/tree_03.png',
         trunkColor: "#3e2723",
         trunkSize: [25, 45],
         crownColors: ["#1b5e20", "#004d40"],
@@ -66,6 +68,7 @@ const PLANT_ARCHETYPES = {
     // High Canopy (Pine-like)
     high_canopy: {
         type: 'high_canopy',
+        imagePath: 'assets/trees/tree_04.png',
         trunkColor: "#5d4037",
         trunkSize: [30, 45],
         crownColors: ["#388e3c"],
@@ -76,6 +79,7 @@ const PLANT_ARCHETYPES = {
     // Tropical Broadleaf (Banana, Palm)
     broadleaf: {
         type: 'huge_leaves',
+        imagePath: 'assets/trees/tree_05.png',
         trunkColor: "#8d6e63",
         trunkSize: [20, 35],
         crownColors: ["#43a047"],
@@ -86,6 +90,7 @@ const PLANT_ARCHETYPES = {
     // Weeping (Willow)
     weeping: {
         type: 'drooping_lines',
+        imagePath: 'assets/trees/tree_06.png',
         trunkColor: "#424242",
         trunkSize: [40, 70],
         crownColors: ["#7cb342"],
@@ -96,6 +101,7 @@ const PLANT_ARCHETYPES = {
     // Flat top (Acacia)
     flat: {
         type: 'flat',
+        imagePath: 'assets/trees/tree_05.png', // Fallback to broadleaf style
         trunkColor: "#5d4037",
         trunkSize: [35, 55],
         crownColors: ["#7cb342"],
@@ -106,6 +112,7 @@ const PLANT_ARCHETYPES = {
     // Columnar (Poplar, Cactus)
     column: {
         type: 'tall_column',
+        imagePath: 'assets/trees/tree_02.png', // Use Birch-like style
         trunkColor: "#eeeeee",
         trunkSize: [20, 30],
         crownColors: ["#81c784"],
@@ -130,6 +137,7 @@ export const TREE_SPECIES = {
     birch: createSpecies(PLANT_ARCHETYPES.deciduous, {
         name: "Brzoza Brodawkowata",
         type: 'sparse_dots',
+        imagePath: 'assets/trees/tree_02.png',
         trunkColor: "#eeeeee", trunkSize: [20, 35],
         crownColors: ["#81c784", "#66bb6a"], crownSize: [220, 380],
         cluster: 0.8
@@ -228,7 +236,36 @@ export const TREE_SPECIES = {
 
 export const SHRUB_SPECIES = {
     fern: { name: "Paproć", colors: ["#66bb6a"], size: [80, 140], type: 'fern', aquatic: false },
-    berry: { name: "Jagody", colors: ["#2e7d32"], size: [60, 100], type: 'bush_dots', aquatic: false },
+    berry: {
+        name: "Jagody",
+        colors: ["#2e7d32"],
+        size: [60, 100],
+        type: 'bush_dots',
+        aquatic: false,
+        fruit: {
+            id: 'berry',
+            name: "Jagody",
+            stats: { nutrition: 10, hydration: 5 },
+            color: '#9c27b0',
+            countRange: [2, 5],
+            icon: '🫐'
+        }
+    },
+    raspberry: {
+        name: "Maliny",
+        colors: ["#2e7d32", "#4caf50"],
+        size: [50, 90],
+        type: 'bush_dots',
+        aquatic: false,
+        fruit: {
+            id: 'raspberry',
+            name: "Maliny",
+            stats: { nutrition: 8, hydration: 3 },
+            color: '#d81b60',
+            countRange: [3, 6],
+            icon: '🍇'
+        }
+    },
     dry_bush: { name: "Suche krzaki", colors: ["#a1887f"], size: [70, 110], type: 'tuft', aquatic: false },
     reeds: { name: "Trzcina", colors: ["#dce775", "#c0ca33"], size: [60, 100], type: 'reeds', aquatic: true },
     lilypad: { name: "Lilia wodna", colors: ["#81c784"], size: [40, 60], type: 'lily', aquatic: true },
@@ -258,7 +295,7 @@ export const BIOME_CONFIG = {
             {id: 'poplar', chance: 0.05},
             {id: 'linden', chance: 0.05}
         ],
-        shrubs: [{id: 'fern', chance: 0.3}, {id: 'berry', chance: 0.2}, {id: 'flower_pansy', chance: 0.1}],
+        shrubs: [{id: 'fern', chance: 0.3}, {id: 'berry', chance: 0.15}, {id: 'raspberry', chance: 0.15}, {id: 'flower_pansy', chance: 0.1}],
         stones: [{id: 'small', chance: 0.02}, {id: 'medium', chance: 0.01}],
         density: 0.05
     },
@@ -372,25 +409,29 @@ function detectBiomeByHeuristic(r, g, b) {
     return BIOME_CONFIG.temperate_deciduous;
 }
 
-export function getBiomeData(chunkX, chunkY, biomeCtx, heightCtx) {
-    if (!biomeCtx) return DEFAULT_BIOME;
+export function getBiomeData(chunkX, chunkY, biomeData, heightData) {
+    if (!biomeData) return DEFAULT_BIOME;
 
-    const width = biomeCtx.canvas.width;
-    const height = biomeCtx.canvas.height;
+    const width = biomeData.width;
+    const height = biomeData.height;
 
-    if (chunkX < 0 || chunkX >= width || chunkY < 0 || chunkY >= height) {
-        return BIOME_CONFIG.marine;
-    }
+    // Clamp coordinates to ensure valid image data access
+    chunkX = Math.max(0, Math.min(chunkX, width - 1));
+    chunkY = Math.max(0, Math.min(chunkY, height - 1));
 
-    const p = biomeCtx.getImageData(chunkX, chunkY, 1, 1).data;
-    const r=p[0], g=p[1], b=p[2];
+    const idx = (chunkY * width + chunkX) * 4;
+    const r = biomeData.data[idx];
+    const g = biomeData.data[idx + 1];
+    const b = biomeData.data[idx + 2];
 
     let isOcean = false;
 
-    if (heightCtx) {
-        const hData = heightCtx.getImageData(chunkX, chunkY, 1, 1).data;
-        // Monochromatic, so R=G=B.
-        const hVal = hData[0];
+    if (heightData) {
+        // Assume heightData has same dimensions or we use its own dimensions
+        const hWidth = heightData.width;
+        // Just to be safe, though usually maps match
+        const hIdx = (chunkY * hWidth + chunkX) * 4;
+        const hVal = heightData.data[hIdx];
         if (hVal < 42) {
             isOcean = true;
         }

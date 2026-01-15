@@ -165,9 +165,12 @@ export class WorldManager {
         this.renderListDirty = true;
         this.biomeCanvas = document.createElement('canvas');
         this.biomeCtx = null;
+        this.biomeData = null;
         this.heightCanvas = document.createElement('canvas');
         this.heightCtx = null;
+        this.heightData = null;
         this.mapsLoaded = false;
+        this.renderedObjects = [];
 
         this.loadingPromise = this.loadGlobalMaps();
     }
@@ -181,6 +184,7 @@ export class WorldManager {
             this.biomeCanvas.height = bImg.height;
             this.biomeCtx = this.biomeCanvas.getContext('2d');
             this.biomeCtx.drawImage(bImg, 0, 0);
+            this.biomeData = this.biomeCtx.getImageData(0, 0, bImg.width, bImg.height);
 
             const hImg = new Image();
             hImg.src = 'assets/height_map.png';
@@ -189,6 +193,7 @@ export class WorldManager {
             this.heightCanvas.height = hImg.height;
             this.heightCtx = this.heightCanvas.getContext('2d');
             this.heightCtx.drawImage(hImg, 0, 0);
+            this.heightData = this.heightCtx.getImageData(0, 0, hImg.width, hImg.height);
 
             this.mapsLoaded = true;
             console.log("Maps loaded successfully.");
@@ -197,7 +202,7 @@ export class WorldManager {
         }
     }
 
-    update(player) {
+    update(dt, player) {
         if (!this.mapsLoaded) return;
 
         const cx = Math.floor(player.x / CHUNK_SIZE_PX);
@@ -215,7 +220,7 @@ export class WorldManager {
                 if (!this.activeChunks.has(key)) {
                     // Check Persistence
                     let chunk;
-                    const biome = getBiomeData(x, y, this.biomeCtx, this.heightCtx);
+                    const biome = getBiomeData(x, y, this.biomeData, this.heightData);
 
                     if (this.savedChunks.has(key)) {
                          // Restore
@@ -313,14 +318,13 @@ export class WorldManager {
 
         const allObjects = this.renderList;
 
-        for (const obj of allObjects) {
-            // Standard render method (Trunk only for trees, Full for others)
-            obj.render(ctx);
+        // Add Player
+        if (player) {
+            objectsToRender.push(player);
         }
-    }
 
-    renderTop(ctx, player) {
-        if (!this.mapsLoaded) return;
+        // Sort by Y for Depth
+        objectsToRender.sort((a, b) => a.y - b.y);
 
         // Render Crowns (Upper Layer)
         if (this.renderListDirty) {
@@ -329,9 +333,10 @@ export class WorldManager {
 
         const allObjects = this.renderList;
 
-        for (const obj of allObjects) {
+        // Render Top Layer (Tree Crowns)
+        for (const obj of objectsToRender) {
             if (obj.renderCrown) {
-                obj.renderCrown(ctx, player);
+                obj.renderCrown(ctx);
             }
         }
     }
