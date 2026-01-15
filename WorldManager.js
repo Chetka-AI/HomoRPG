@@ -200,7 +200,7 @@ export class WorldManager {
         }
     }
 
-    update(player) {
+    update(dt, player) {
         if (!this.mapsLoaded) return;
 
         const cx = Math.floor(player.x / CHUNK_SIZE_PX);
@@ -241,6 +241,13 @@ export class WorldManager {
                     this.savedChunks.set(key, chunk.objects);
                 }
                 this.activeChunks.delete(key);
+            }
+        }
+
+        // Update objects
+        for (const chunk of this.activeChunks.values()) {
+            for (const obj of chunk.objects) {
+                if (obj.update) obj.update(dt);
             }
         }
     }

@@ -180,7 +180,7 @@ class Game {
         if (!this.gameStarted) return;
 
         // Update World Chunks
-        this.world.update(this.player);
+        this.world.update(dt, this.player);
 
         const inputState = this.input.update();
 
