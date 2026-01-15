@@ -161,6 +161,8 @@ export class WorldManager {
     constructor() {
         this.activeChunks = new Map(); // "x,y" -> Chunk
         this.savedChunks = new Map(); // "x,y" -> Array<GameObject>
+        this.renderList = [];
+        this.renderListDirty = true;
         this.biomeCanvas = document.createElement('canvas');
         this.biomeCtx = null;
         this.biomeData = null;
@@ -207,6 +209,7 @@ export class WorldManager {
         const cy = Math.floor(player.y / CHUNK_SIZE_PX);
 
         const loadedKeys = new Set();
+        let chunksChanged = false;
 
         // Load 3x3 area
         for(let y = cy - 1; y <= cy + 1; y++) {
@@ -229,6 +232,7 @@ export class WorldManager {
                          chunk = new Chunk(x, y, biome, this.heightCtx, true);
                     }
                     this.activeChunks.set(key, chunk);
+                    chunksChanged = true;
                 }
             }
         }
@@ -241,14 +245,12 @@ export class WorldManager {
                     this.savedChunks.set(key, chunk.objects);
                 }
                 this.activeChunks.delete(key);
+                chunksChanged = true;
             }
         }
 
-        // Update objects
-        for (const chunk of this.activeChunks.values()) {
-            for (const obj of chunk.objects) {
-                if (obj.update) obj.update(dt);
-            }
+        if (chunksChanged) {
+            this.renderListDirty = true;
         }
     }
 
@@ -289,7 +291,19 @@ export class WorldManager {
         return false;
     }
 
-    renderWorld(ctx, player) {
+    rebuildRenderList() {
+        this.renderList.length = 0;
+        for (const chunk of this.activeChunks.values()) {
+            for (let i = 0; i < chunk.objects.length; i++) {
+                this.renderList.push(chunk.objects[i]);
+            }
+        }
+        this.renderList.sort((a, b) => a.y - b.y);
+        this.renderListDirty = false;
+    }
+
+    // Split Rendering
+    renderBottom(ctx) {
         if (!this.mapsLoaded) return;
 
         // Render Terrain
@@ -305,9 +319,11 @@ export class WorldManager {
         }
         this._cachedSortedObjects.sort((a, b) => a.y - b.y);
 
-        for (const obj of this._cachedSortedObjects) {
-            // Standard render method (Trunk only for trees, Full for others)
-            obj.render(ctx);
+        const allObjects = this.renderList;
+
+        // Add Player
+        if (player) {
+            objectsToRender.push(player);
         }
 
         // Sort by Y for Depth
@@ -326,6 +342,8 @@ export class WorldManager {
             allObjects.sort((a, b) => a.y - b.y);
         }
 
+        const allObjects = this.renderList;
+
         // Render Top Layer (Tree Crowns)
         for (const obj of objectsToRender) {
             if (obj.renderCrown) {
@@ -343,6 +361,7 @@ export class WorldManager {
             const chunk = this.activeChunks.get(key);
             chunk.objects.push(obj);
             chunk.isModified = true;
+            this.renderListDirty = true;
         }
     }
 
@@ -352,6 +371,7 @@ export class WorldManager {
             if (idx !== -1) {
                 chunk.objects.splice(idx, 1);
                 chunk.isModified = true;
+                this.renderListDirty = true;
                 return;
             }
         }
