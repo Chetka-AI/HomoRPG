@@ -106,9 +106,107 @@ export class Inventory {
             this.toggle();
         });
 
-        // Setup Drag Events on container
-        const container = document.getElementById('inventory-container');
-        if (!container) return;
+        // Setup Drag & Drop
+        this.setupDragDrop();
+    }
+
+    setupDragDrop() {
+        const panel = document.getElementById('inventory-panel');
+        if (!panel) return;
+
+        let dragItem = null;
+        let ghost = null;
+        let startX = 0, startY = 0;
+        let isDragging = false;
+
+        const onPointerDown = (e) => {
+            const slot = e.target.closest('.inv-slot');
+            if (!slot || !slot.classList.contains('filled')) return;
+
+            // Don't prevent default immediately to allow click/dblclick interactions
+            // and native touch behavior if we don't move enough.
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            const type = slot.dataset.type;
+            const rawIndex = slot.dataset.index;
+            const index = (type === 'hand') ? rawIndex : parseInt(rawIndex, 10);
+
+            dragItem = { slot, type, index };
+            isDragging = false;
+
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+        };
+
+        const onPointerMove = (e) => {
+            if (!dragItem) return;
+
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (!isDragging && dist > 5) {
+                isDragging = true;
+
+                // Create ghost
+                ghost = dragItem.slot.cloneNode(true);
+                ghost.style.position = 'absolute';
+                ghost.style.width = `${dragItem.slot.offsetWidth}px`;
+                ghost.style.height = `${dragItem.slot.offsetHeight}px`;
+                ghost.style.opacity = '0.8';
+                ghost.style.zIndex = '1000';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.boxShadow = '0 5px 15px rgba(0,0,0,0.5)';
+                ghost.style.transform = 'scale(1.1)';
+
+                // Initial position
+                updateGhostPosition(e.clientX, e.clientY);
+
+                document.body.appendChild(ghost);
+            }
+
+            if (isDragging && ghost) {
+                updateGhostPosition(e.clientX, e.clientY);
+            }
+        };
+
+        const updateGhostPosition = (cx, cy) => {
+            if (!ghost) return;
+            ghost.style.left = `${cx - ghost.offsetWidth / 2}px`;
+            ghost.style.top = `${cy - ghost.offsetHeight / 2}px`;
+        };
+
+        const onPointerUp = (e) => {
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+
+            if (isDragging && ghost) {
+                ghost.remove();
+                ghost = null;
+
+                // Find Drop Target
+                const target = document.elementFromPoint(e.clientX, e.clientY);
+                const targetSlot = target ? target.closest('.inv-slot') : null;
+
+                if (targetSlot) {
+                    const toType = targetSlot.dataset.type;
+                    const toRawIndex = targetSlot.dataset.index;
+                    const toIndex = (toType === 'hand') ? toRawIndex : parseInt(toRawIndex, 10);
+
+                    // Prevent swapping with self
+                    if (dragItem.type !== toType || dragItem.index !== toIndex) {
+                        this.handleMove(dragItem.type, dragItem.index, toType, toIndex);
+                    }
+                }
+            }
+
+            dragItem = null;
+            isDragging = false;
+        };
+
+        panel.addEventListener('pointerdown', onPointerDown);
     }
 
     render() {
@@ -153,45 +251,14 @@ export class Inventory {
         if (item) {
             div.innerText = item.icon;
             div.title = `${item.name} (${item.weight}kg)`;
-            div.draggable = true;
             div.classList.add('filled');
-
-            // Drag Start
-            div.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', JSON.stringify({ type, index }));
-                e.dataTransfer.effectAllowed = 'move';
-            });
 
             // Interaction: Double Click to Consume
             div.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 this.consumeItem(item);
             });
-
-            // Interaction: Long Press (Simulated via simple timeout or separate handler)
-            // Since this is DOM, we can just use dblclick for now which is standard for desktop.
-            // For touch, dblclick might be hard. Let's add a simple click listener that checks modifiers?
-            // Or rely on the context menu logic if we want to add that later.
-            // "Actions" are requested.
         }
-
-        // Drop Zone
-        div.addEventListener('dragover', (e) => {
-            e.preventDefault(); // Allow drop
-            e.dataTransfer.dropEffect = 'move';
-            div.classList.add('drag-over');
-        });
-
-        div.addEventListener('dragleave', () => {
-            div.classList.remove('drag-over');
-        });
-
-        div.addEventListener('drop', (e) => {
-            e.preventDefault();
-            div.classList.remove('drag-over');
-            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-            this.handleMove(data.type, data.index, type, index);
-        });
 
         return div;
     }
