@@ -3,7 +3,7 @@ export class CharacterStats {
         // --- PHYSICAL ATTRIBUTES ---
         this.mass = 75.0; // kg. Body Mass.
         this.inventoryMass = 0.0; // kg. Gear/Inventory Weight.
-        this.strength = 50.0; // 0-100. Affects carry weight (future) and speed slightly.
+        this.strength = 50.0; // 0-100. Affects carry weight and speed slightly.
         this.endurance = 50.0; // 0-100. Reduces stamina drain.
         this.speedStat = 50.0; // 0-100. Base running speed skill.
 
