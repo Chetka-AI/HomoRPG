@@ -200,7 +200,7 @@ export class WorldManager {
         }
     }
 
-    update(player) {
+    update(dt, player) {
         if (!this.mapsLoaded) return;
 
         const cx = Math.floor(player.x / CHUNK_SIZE_PX);
@@ -243,6 +243,13 @@ export class WorldManager {
                 this.activeChunks.delete(key);
             }
         }
+
+        // Update objects
+        for (const chunk of this.activeChunks.values()) {
+            for (const obj of chunk.objects) {
+                if (obj.update) obj.update(dt);
+            }
+        }
     }
 
     checkCollision(x, y) {
@@ -282,8 +289,7 @@ export class WorldManager {
         return false;
     }
 
-    // Split Rendering
-    renderBottom(ctx) {
+    renderWorld(ctx, player) {
         if (!this.mapsLoaded) return;
 
         // Render Terrain
@@ -291,29 +297,31 @@ export class WorldManager {
             chunk.renderTerrain(ctx);
         }
 
-        // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        this.renderedObjects = [];
+        // Collect Objects
+        let objectsToRender = [];
         for (const chunk of this.activeChunks.values()) {
-            this.renderedObjects = this.renderedObjects.concat(chunk.objects);
+            objectsToRender = objectsToRender.concat(chunk.objects);
         }
-        this.renderedObjects.sort((a, b) => a.y - b.y);
 
-        for (const obj of this.renderedObjects) {
-            // Standard render method (Trunk only for trees, Full for others)
-            obj.render(ctx);
+        // Add Player
+        if (player) {
+            objectsToRender.push(player);
         }
-    }
 
-    renderTop(ctx, player) {
-        if (!this.mapsLoaded) return;
+        // Sort by Y for Depth
+        objectsToRender.sort((a, b) => a.y - b.y);
 
-        // Render Crowns (Upper Layer)
-        // Using optimized collection from renderBottom
-        const objectsToRender = this.renderedObjects || [];
+        // Render Base Layer (Trunks, Players, Bushes, Stones)
+        for (const obj of objectsToRender) {
+            if (obj.render) {
+                obj.render(ctx, player);
+            }
+        }
 
+        // Render Top Layer (Tree Crowns)
         for (const obj of objectsToRender) {
             if (obj.renderCrown) {
-                obj.renderCrown(ctx, player);
+                obj.renderCrown(ctx);
             }
         }
     }
