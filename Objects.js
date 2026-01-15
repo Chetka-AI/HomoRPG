@@ -142,6 +142,74 @@ export class Tree extends GameObject {
         }
 
         this.state = 'standing'; // 'standing', 'fallen', 'logs'
+        this.cache = null;
+    }
+
+    updateCache() {
+        if (typeof document === 'undefined') return;
+
+        const trunkW = this.trunkSize;
+        const size = Math.ceil(trunkW * 3);
+        this.cache = document.createElement('canvas');
+        this.cache.width = size;
+        this.cache.height = size;
+        const ctx = this.cache.getContext('2d');
+
+        ctx.translate(size / 2, size / 2);
+
+        const rng = mulberry32(this.seed);
+        this.drawStandingTrunk(ctx, rng);
+    }
+
+    drawStandingTrunk(ctx, rng) {
+        const species = this.species;
+        const trunkW = this.trunkSize;
+
+        // --- TRUNK ---
+        ctx.fillStyle = "rgba(0,0,0,0.5)"; // Shadow base
+        ctx.beginPath(); ctx.ellipse(5, 5, trunkW/2, trunkW/2, 0, 0, Math.PI*2); ctx.fill();
+
+        ctx.fillStyle = species.trunkColor;
+
+        if (species.type === 'column') { // Cactus
+            ctx.beginPath(); ctx.arc(0, 0, trunkW*0.4, 0, Math.PI*2); ctx.fill();
+            if(rng()>0.5) { // Arm
+                ctx.beginPath(); ctx.arc(trunkW*0.4, -trunkW*0.2, trunkW*0.2, 0, Math.PI*2); ctx.fill();
+            }
+        } else if (species.type === 'roots_visible') { // Mangrove
+            ctx.beginPath();
+            for(let i=0; i<5; i++) {
+                const ang = (i/5)*Math.PI*2;
+                const r = trunkW*0.8;
+                ctx.moveTo(Math.cos(ang)*r, Math.sin(ang)*r);
+                ctx.lineTo(0,0);
+            }
+            ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, 0, trunkW*0.3, 0, Math.PI*2); ctx.fill();
+        } else if (species.type === 'fat_trunk') { // Baobab
+            ctx.beginPath(); ctx.arc(0, 0, trunkW*0.6, 0, Math.PI*2); ctx.fill();
+        } else {
+            ctx.beginPath();
+            const points = 7;
+            for(let i=0; i<=points; i++) {
+                const ang = i*(Math.PI*2/points);
+                const r = (trunkW/2) * (0.85 + rng()*0.3);
+                const px = Math.cos(ang)*r;
+                const py = Math.sin(ang)*r;
+                if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+            }
+            ctx.fill();
+        }
+
+        // Details on trunk (e.g. birch dots)
+        if (species.type === 'sparse_dots') {
+            ctx.fillStyle = "#333";
+            for(let i=0; i<5; i++) {
+                const tx = (rng()-0.5)*trunkW*0.6;
+                const ty = (rng()-0.5)*trunkW*0.6;
+                ctx.fillRect(tx, ty, 3, 2);
+            }
+        }
     }
 
     render(ctx) {
@@ -153,52 +221,14 @@ export class Tree extends GameObject {
         ctx.translate(this.x, this.y);
 
         if (this.state === 'standing') {
-            // --- TRUNK ---
-            ctx.fillStyle = "rgba(0,0,0,0.5)"; // Shadow base
-            ctx.beginPath(); ctx.ellipse(5, 5, trunkW/2, trunkW/2, 0, 0, Math.PI*2); ctx.fill();
-
-            ctx.fillStyle = species.trunkColor;
-
-            if (species.type === 'column') { // Cactus
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.4, 0, Math.PI*2); ctx.fill();
-                if(rng()>0.5) { // Arm
-                    ctx.beginPath(); ctx.arc(trunkW*0.4, -trunkW*0.2, trunkW*0.2, 0, Math.PI*2); ctx.fill();
-                }
-            } else if (species.type === 'roots_visible') { // Mangrove
-                ctx.beginPath();
-                for(let i=0; i<5; i++) {
-                    const ang = (i/5)*Math.PI*2;
-                    const r = trunkW*0.8;
-                    ctx.moveTo(Math.cos(ang)*r, Math.sin(ang)*r);
-                    ctx.lineTo(0,0);
-                }
-                ctx.stroke();
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.3, 0, Math.PI*2); ctx.fill();
-            } else if (species.type === 'fat_trunk') { // Baobab
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.6, 0, Math.PI*2); ctx.fill();
+            if (!this.cache && typeof document !== 'undefined') {
+                this.updateCache();
+            }
+            if (this.cache) {
+                ctx.drawImage(this.cache, -this.cache.width / 2, -this.cache.height / 2);
             } else {
-                ctx.beginPath();
-                const points = 7;
-                for(let i=0; i<=points; i++) {
-                    const ang = i*(Math.PI*2/points);
-                    const r = (trunkW/2) * (0.85 + rng()*0.3);
-                    const px = Math.cos(ang)*r;
-                    const py = Math.sin(ang)*r;
-                    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
-                }
-                ctx.fill();
+                this.drawStandingTrunk(ctx, rng);
             }
-
-            // Details on trunk (e.g. birch dots)
-            if (species.type === 'sparse_dots') {
-                ctx.fillStyle = "#333";
-                for(let i=0; i<5; i++) {
-                    const tx = (rng()-0.5)*trunkW*0.6;
-                    const ty = (rng()-0.5)*trunkW*0.6;
-                    ctx.fillRect(tx, ty, 3, 2);
-                }
-            }
-
         } else if (this.state === 'fallen') {
             // Simplified fallen state
             ctx.rotate(Math.PI / 2);
@@ -376,7 +406,7 @@ export class Tree extends GameObject {
             if (hasAxe) {
                 actions.push({
                     label: 'Zetnij (🪓)',
-                    action: () => { this.state = 'fallen'; return 'update'; }
+                    action: () => { this.state = 'fallen'; this.cache = null; return 'update'; }
                 });
             } else {
                 actions.push({
@@ -388,7 +418,7 @@ export class Tree extends GameObject {
             if (hasAxe) {
                 actions.push({
                     label: 'Porąb (🪓)',
-                    action: () => { this.state = 'logs'; return 'update'; }
+                    action: () => { this.state = 'logs'; this.cache = null; return 'update'; }
                 });
             }
         } else if (this.state === 'logs') {
@@ -407,12 +437,35 @@ export class Tree extends GameObject {
 export class Bush extends GameObject {
     constructor(x, y, species, seed, size) {
         super(x, y, 'bush');
-        this.species = species || { name: "Jagody", colors: ["#2e7d32"], size: [60, 100], type: 'bush_dots', aquatic: false };
+        this.species = species || {
+            name: "Jagody",
+            colors: ["#2e7d32"],
+            size: [60, 100],
+            type: 'bush_dots',
+            aquatic: false,
+            fruit: {
+                id: 'berry',
+                name: "Jagody",
+                stats: { nutrition: 10, hydration: 5 },
+                color: '#9c27b0',
+                countRange: [2, 5],
+                icon: '🫐'
+            }
+        };
         this.seed = seed || Date.now();
         this.size = size || 60; // Default or passed
-        this.fruits = 3; // Logic for berries logic, maybe only for specific species?
-        // Only berry bushes have fruits for now
-        this.hasFruits = (this.species.id === 'berry' || this.species.name === 'Jagody');
+
+        this.fruits = 0;
+        if (this.species.fruit) {
+             const rng = mulberry32(this.seed + 100);
+             const min = this.species.fruit.countRange ? this.species.fruit.countRange[0] : 0;
+             const max = this.species.fruit.countRange ? this.species.fruit.countRange[1] : 0;
+             this.fruits = Math.floor(min + rng() * (max - min + 1));
+        }
+    }
+
+    get hasFruits() {
+        return this.fruits > 0;
     }
 
     render(ctx) {
@@ -489,8 +542,8 @@ export class Bush extends GameObject {
             ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
 
             // Fruits
-            if (this.hasFruits && this.fruits > 0) {
-                ctx.fillStyle = '#9c27b0';
+            if (this.hasFruits) {
+                ctx.fillStyle = this.species.fruit.color || '#9c27b0';
                 for(let i=0; i<this.fruits; i++) {
                     const angle = (Math.PI * 2 * i) / 3;
                     ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
@@ -503,29 +556,50 @@ export class Bush extends GameObject {
 
     getActions(character) {
         const actions = [];
-        if (this.hasFruits && this.fruits > 0) {
+        if (this.hasFruits) {
             actions.push({
                 label: 'Zbierz (🫳)',
                 action: () => {
                     this.fruits--;
+                    const fruitDef = this.species.fruit;
                     const item = new Item(
-                        `berry_${Date.now()}`,
-                        `Jagody`,
+                        `${fruitDef.id}_${Date.now()}`,
+                        fruitDef.name,
                         'food',
                         0.1,
-                        '🫐'
+                        fruitDef.icon || '🫐'
                     );
-                    item.stats = { nutrition: 10, hydration: 5 }; // Add stats to item
+                    item.stats = fruitDef.stats || {};
                     character.inventory.addItem(item);
                     return 'update';
                 }
             });
         }
         // General action for others?
+        actions.push({
+            label: 'Zbadaj (👀)',
+            action: () => { console.log(`To jest ${this.species.name}.`); }
+        });
+
         if (this.species.type === 'reeds') {
              actions.push({
-                label: 'Zbadaj',
-                action: () => { console.log("To jest trzcina."); }
+                label: 'Zbierz Trzcinę (🌾)',
+                action: () => {
+                    const item = new Item(`reeds_${Date.now()}`, `Trzcina`, 'resource', 0.2, '🌾');
+                    if (character.inventory.addItem(item)) {
+                        return 'remove';
+                    }
+                }
+            });
+        } else if (this.species.type === 'tuft' || this.species.id === 'dry_bush') {
+             actions.push({
+                label: 'Zbierz Patyki (🪵)',
+                action: () => {
+                    const item = new Item(`stick_${Date.now()}`, `Patyk`, 'resource', 0.1, '🪵');
+                    if (character.inventory.addItem(item)) {
+                        return 'remove';
+                    }
+                }
             });
         }
         return actions;

@@ -3,7 +3,7 @@ export class CharacterStats {
         // --- PHYSICAL ATTRIBUTES ---
         this.mass = 75.0; // kg. Body Mass.
         this.inventoryMass = 0.0; // kg. Gear/Inventory Weight.
-        this.strength = 50.0; // 0-100. Affects carry weight (future) and speed slightly.
+        this.strength = 50.0; // 0-100. Affects carry weight and speed slightly.
         this.endurance = 50.0; // 0-100. Reduces stamina drain.
         this.speedStat = 50.0; // 0-100. Base running speed skill.
 
@@ -26,7 +26,7 @@ export class CharacterStats {
         this.xp = {
             strength: 0,
             endurance: 0,
-            speed: 0
+            speedStat: 0
         };
 
         // --- CONFIGURATION ---
@@ -52,18 +52,27 @@ export class CharacterStats {
         // dt in seconds
         const dts = dt / 1000.0;
 
-        // --- 1. TIME DECAY (Needs & Energy) ---
-        // Needs increase over time.
-        // 10x slower than before.
-        const hungerRate = 0.05;
-        const thirstRate = 0.08;
-        const toiletRate = 0.03;
-        const energyDrain = 0.02;
+        // Game Time Scale: 1 real second = 60 game seconds (1 real minute = 1 game hour)
+        // 24 real minutes = 1 game day
+        const GAME_TIME_SCALE = 60.0;
+        const gameDt = dts * GAME_TIME_SCALE;
 
-        this.hunger = Math.min(100, this.hunger + hungerRate * dts);
-        this.thirst = Math.min(100, this.thirst + thirstRate * dts);
-        this.toilet = Math.min(100, this.toilet + toiletRate * dts);
-        this.energy = Math.max(0, this.energy - energyDrain * dts);
+        // --- 1. TIME DECAY (Needs & Energy) ---
+        // Rates are per GAME SECOND
+        // Hunger: Full (100) in 24 game hours
+        // Thirst: Full (100) in 18 game hours
+        // Toilet: Full (100) in 24 game hours
+        // Energy: Empty (0) in 18 game hours (awake time)
+
+        const hungerRate = 100.0 / (24 * 3600);
+        const thirstRate = 100.0 / (18 * 3600);
+        const toiletRate = 100.0 / (24 * 3600);
+        const energyDrain = 100.0 / (18 * 3600);
+
+        this.hunger = Math.min(100, this.hunger + hungerRate * gameDt);
+        this.thirst = Math.min(100, this.thirst + thirstRate * gameDt);
+        this.toilet = Math.min(100, this.toilet + toiletRate * gameDt);
+        this.energy = Math.max(0, this.energy - energyDrain * gameDt);
 
         // --- 2. HEALTH IMPACT ---
         let healthChange = 0;
@@ -127,8 +136,29 @@ export class CharacterStats {
     }
 
     train(stat, amount) {
-        // Simple linear progression for now
-        this[stat] = Math.min(100, this[stat] + amount);
+        // Non-linear progression system
+        if (this[stat] >= 100) return;
+
+        // Accumulate XP
+        this.xp[stat] += amount;
+
+        // Check for level up
+        let cost = this.getLevelCost(this[stat]);
+        while (this.xp[stat] >= cost && this[stat] < 100) {
+            this.xp[stat] -= cost;
+            this[stat]++;
+            // Recalculate cost for next level if we leveled up multiple times
+            cost = this.getLevelCost(this[stat]);
+        }
+
+        // Hard cap
+        if (this[stat] > 100) this[stat] = 100;
+    }
+
+    getLevelCost(level) {
+        // Curve: Harder to level up as you get stronger.
+        // Formula: 100 * (level / 50)^4
+        return 100 * Math.pow(level / 50.0, 4);
     }
 
     // Derived Metric for Character.js

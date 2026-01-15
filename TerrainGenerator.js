@@ -228,7 +228,21 @@ export const TREE_SPECIES = {
 
 export const SHRUB_SPECIES = {
     fern: { name: "Paproć", colors: ["#66bb6a"], size: [80, 140], type: 'fern', aquatic: false },
-    berry: { name: "Jagody", colors: ["#2e7d32"], size: [60, 100], type: 'bush_dots', aquatic: false },
+    berry: {
+        name: "Jagody",
+        colors: ["#2e7d32"],
+        size: [60, 100],
+        type: 'bush_dots',
+        aquatic: false,
+        fruit: {
+            id: 'berry',
+            name: "Jagody",
+            stats: { nutrition: 10, hydration: 5 },
+            color: '#9c27b0',
+            countRange: [2, 5],
+            icon: '🫐'
+        }
+    },
     dry_bush: { name: "Suche krzaki", colors: ["#a1887f"], size: [70, 110], type: 'tuft', aquatic: false },
     reeds: { name: "Trzcina", colors: ["#dce775", "#c0ca33"], size: [60, 100], type: 'reeds', aquatic: true },
     lilypad: { name: "Lilia wodna", colors: ["#81c784"], size: [40, 60], type: 'lily', aquatic: true },
@@ -372,25 +386,29 @@ function detectBiomeByHeuristic(r, g, b) {
     return BIOME_CONFIG.temperate_deciduous;
 }
 
-export function getBiomeData(chunkX, chunkY, biomeCtx, heightCtx) {
-    if (!biomeCtx) return DEFAULT_BIOME;
+export function getBiomeData(chunkX, chunkY, biomeData, heightData) {
+    if (!biomeData) return DEFAULT_BIOME;
 
-    const width = biomeCtx.canvas.width;
-    const height = biomeCtx.canvas.height;
+    const width = biomeData.width;
+    const height = biomeData.height;
 
-    if (chunkX < 0 || chunkX >= width || chunkY < 0 || chunkY >= height) {
-        return BIOME_CONFIG.marine;
-    }
+    // Clamp coordinates to ensure valid image data access
+    chunkX = Math.max(0, Math.min(chunkX, width - 1));
+    chunkY = Math.max(0, Math.min(chunkY, height - 1));
 
-    const p = biomeCtx.getImageData(chunkX, chunkY, 1, 1).data;
-    const r=p[0], g=p[1], b=p[2];
+    const idx = (chunkY * width + chunkX) * 4;
+    const r = biomeData.data[idx];
+    const g = biomeData.data[idx + 1];
+    const b = biomeData.data[idx + 2];
 
     let isOcean = false;
 
-    if (heightCtx) {
-        const hData = heightCtx.getImageData(chunkX, chunkY, 1, 1).data;
-        // Monochromatic, so R=G=B.
-        const hVal = hData[0];
+    if (heightData) {
+        // Assume heightData has same dimensions or we use its own dimensions
+        const hWidth = heightData.width;
+        // Just to be safe, though usually maps match
+        const hIdx = (chunkY * hWidth + chunkX) * 4;
+        const hVal = heightData.data[hIdx];
         if (hVal < 42) {
             isOcean = true;
         }
