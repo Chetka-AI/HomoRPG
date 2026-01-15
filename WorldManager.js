@@ -312,9 +312,12 @@ export class WorldManager {
         }
 
         // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        if (this.renderListDirty) {
-            this.rebuildRenderList();
+        // Cache sorted objects for renderTop to reuse
+        this._cachedSortedObjects = [];
+        for (const chunk of this.activeChunks.values()) {
+            this._cachedSortedObjects = this._cachedSortedObjects.concat(chunk.objects);
         }
+        this._cachedSortedObjects.sort((a, b) => a.y - b.y);
 
         const allObjects = this.renderList;
 
@@ -327,8 +330,16 @@ export class WorldManager {
         objectsToRender.sort((a, b) => a.y - b.y);
 
         // Render Crowns (Upper Layer)
-        if (this.renderListDirty) {
-            this.rebuildRenderList();
+        // Reuse sorted objects from renderBottom if available
+        let allObjects = this._cachedSortedObjects;
+
+        // Fallback if renderBottom wasn't called (though it should be)
+        if (!allObjects) {
+            allObjects = [];
+            for (const chunk of this.activeChunks.values()) {
+                allObjects = allObjects.concat(chunk.objects);
+            }
+            allObjects.sort((a, b) => a.y - b.y);
         }
 
         const allObjects = this.renderList;
