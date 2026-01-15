@@ -106,68 +106,107 @@ export class Inventory {
             this.toggle();
         });
 
-        // Setup Drag Events on container (Delegation)
-        const container = document.getElementById('inventory-panel');
-        if (!container) return;
+        // Setup Drag & Drop
+        this.setupDragDrop();
+    }
 
-        container.addEventListener('dragstart', (e) => {
+    setupDragDrop() {
+        const panel = document.getElementById('inventory-panel');
+        if (!panel) return;
+
+        let dragItem = null;
+        let ghost = null;
+        let startX = 0, startY = 0;
+        let isDragging = false;
+
+        const onPointerDown = (e) => {
             const slot = e.target.closest('.inv-slot');
             if (!slot || !slot.classList.contains('filled')) return;
 
+            // Don't prevent default immediately to allow click/dblclick interactions
+            // and native touch behavior if we don't move enough.
+
+            startX = e.clientX;
+            startY = e.clientY;
+
             const type = slot.dataset.type;
-            const index = slot.dataset.index;
+            const rawIndex = slot.dataset.index;
+            const index = (type === 'hand') ? rawIndex : parseInt(rawIndex, 10);
 
-            e.dataTransfer.setData('text/plain', JSON.stringify({ type, index }));
-            e.dataTransfer.effectAllowed = 'move';
-        });
+            dragItem = { slot, type, index };
+            isDragging = false;
 
-        container.addEventListener('dragover', (e) => {
-            const slot = e.target.closest('.inv-slot');
-            if (slot) {
-                e.preventDefault(); // Allow drop
-                e.dataTransfer.dropEffect = 'move';
-                slot.classList.add('drag-over');
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+        };
+
+        const onPointerMove = (e) => {
+            if (!dragItem) return;
+
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (!isDragging && dist > 5) {
+                isDragging = true;
+
+                // Create ghost
+                ghost = dragItem.slot.cloneNode(true);
+                ghost.style.position = 'absolute';
+                ghost.style.width = `${dragItem.slot.offsetWidth}px`;
+                ghost.style.height = `${dragItem.slot.offsetHeight}px`;
+                ghost.style.opacity = '0.8';
+                ghost.style.zIndex = '1000';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.boxShadow = '0 5px 15px rgba(0,0,0,0.5)';
+                ghost.style.transform = 'scale(1.1)';
+
+                // Initial position
+                updateGhostPosition(e.clientX, e.clientY);
+
+                document.body.appendChild(ghost);
             }
-        });
 
-        container.addEventListener('dragleave', (e) => {
-            const slot = e.target.closest('.inv-slot');
-            if (slot) {
-                slot.classList.remove('drag-over');
+            if (isDragging && ghost) {
+                updateGhostPosition(e.clientX, e.clientY);
             }
-        });
+        };
 
-        container.addEventListener('drop', (e) => {
-            const slot = e.target.closest('.inv-slot');
-            if (slot) {
-                e.preventDefault();
-                slot.classList.remove('drag-over');
+        const updateGhostPosition = (cx, cy) => {
+            if (!ghost) return;
+            ghost.style.left = `${cx - ghost.offsetWidth / 2}px`;
+            ghost.style.top = `${cy - ghost.offsetHeight / 2}px`;
+        };
 
-                try {
-                    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-                    if (data && data.type && data.index !== undefined) {
-                        this.handleMove(data.type, data.index, slot.dataset.type, slot.dataset.index);
+        const onPointerUp = (e) => {
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+
+            if (isDragging && ghost) {
+                ghost.remove();
+                ghost = null;
+
+                // Find Drop Target
+                const target = document.elementFromPoint(e.clientX, e.clientY);
+                const targetSlot = target ? target.closest('.inv-slot') : null;
+
+                if (targetSlot) {
+                    const toType = targetSlot.dataset.type;
+                    const toRawIndex = targetSlot.dataset.index;
+                    const toIndex = (toType === 'hand') ? toRawIndex : parseInt(toRawIndex, 10);
+
+                    // Prevent swapping with self
+                    if (dragItem.type !== toType || dragItem.index !== toIndex) {
+                        this.handleMove(dragItem.type, dragItem.index, toType, toIndex);
                     }
-                } catch (err) {
-                    console.error('Invalid drop data', err);
                 }
             }
-        });
 
-        container.addEventListener('dblclick', (e) => {
-            const slot = e.target.closest('.inv-slot');
-            if (!slot || !slot.classList.contains('filled')) return;
+            dragItem = null;
+            isDragging = false;
+        };
 
-            e.stopPropagation();
-            const type = slot.dataset.type;
-            const index = slot.dataset.index;
-
-            let item = null;
-            if (type === 'slot') item = this.slots[index];
-            else if (type === 'hand') item = this.hands[index];
-
-            this.consumeItem(item);
-        });
+        panel.addEventListener('pointerdown', onPointerDown);
     }
 
     render() {
@@ -212,8 +251,13 @@ export class Inventory {
         if (item) {
             div.innerText = item.icon;
             div.title = `${item.name} (${item.weight}kg)`;
-            div.draggable = true;
             div.classList.add('filled');
+
+            // Interaction: Double Click to Consume
+            div.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                this.consumeItem(item);
+            });
         }
 
         return div;
