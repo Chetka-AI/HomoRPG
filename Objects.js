@@ -1,6 +1,16 @@
 import { Item } from './Inventory.js';
 import { mulberry32 } from './TerrainGenerator.js';
 
+const imageCache = {};
+function getImage(path) {
+    if (!imageCache[path] && typeof document !== 'undefined') {
+        const img = new Image();
+        img.src = path;
+        imageCache[path] = img;
+    }
+    return imageCache[path];
+}
+
 export class World {
     constructor() {
         this.objects = [];
@@ -15,7 +25,9 @@ export class World {
     }
 
     update(dt) {
-        // Future: animations etc.
+        for (const obj of this.objects) {
+            if (obj.update) obj.update(dt);
+        }
     }
 
     render(ctx) {
@@ -47,9 +59,14 @@ export class GameObject {
         this.y = y;
         this.type = type;
         this.rotation = 0;
+        this.time = Math.random() * 1000;
     }
 
-    render(ctx) {
+    update(dt) {
+        this.time += dt * 0.001; // Convert ms to seconds
+    }
+
+    render(ctx, player = null) {
         throw new Error(`Render method not implemented for ${this.constructor.name}`);
     }
 
@@ -129,83 +146,34 @@ export class Tree extends GameObject {
             type: 'lobes'
         };
         this.seed = seed || Date.now();
-        const rng = mulberry32(this.seed);
+        this.state = 'standing'; // 'standing', 'fallen', 'logs'
 
-        if (sizeInfo) {
-            this.trunkSize = sizeInfo.trunkSize;
-            this.crownSize = sizeInfo.crownSize;
-        } else {
-            const tMin = this.species.trunkSize[0], tMax = this.species.trunkSize[1];
-            const cMin = this.species.crownSize[0], cMax = this.species.crownSize[1];
-            this.trunkSize = tMin + rng()*(tMax - tMin);
-            this.crownSize = cMin + rng()*(cMax - cMin);
+        // Load Image
+        if (this.species.imagePath) {
+            this.image = getImage(this.species.imagePath);
         }
 
-        this.state = 'standing'; // 'standing', 'fallen', 'logs'
+        // Default size for display
+        this.displayHeight = 300; // Approx 3 tiles high
     }
 
-    render(ctx) {
-        const rng = mulberry32(this.seed);
-        const species = this.species;
-        const trunkW = this.trunkSize;
-
+    render(ctx, player) {
         ctx.save();
         ctx.translate(this.x, this.y);
 
         if (this.state === 'standing') {
-            // --- TRUNK ---
-            ctx.fillStyle = "rgba(0,0,0,0.5)"; // Shadow base
-            ctx.beginPath(); ctx.ellipse(5, 5, trunkW/2, trunkW/2, 0, 0, Math.PI*2); ctx.fill();
-
-            ctx.fillStyle = species.trunkColor;
-
-            if (species.type === 'column') { // Cactus
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.4, 0, Math.PI*2); ctx.fill();
-                if(rng()>0.5) { // Arm
-                    ctx.beginPath(); ctx.arc(trunkW*0.4, -trunkW*0.2, trunkW*0.2, 0, Math.PI*2); ctx.fill();
-                }
-            } else if (species.type === 'roots_visible') { // Mangrove
-                ctx.beginPath();
-                for(let i=0; i<5; i++) {
-                    const ang = (i/5)*Math.PI*2;
-                    const r = trunkW*0.8;
-                    ctx.moveTo(Math.cos(ang)*r, Math.sin(ang)*r);
-                    ctx.lineTo(0,0);
-                }
-                ctx.stroke();
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.3, 0, Math.PI*2); ctx.fill();
-            } else if (species.type === 'fat_trunk') { // Baobab
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.6, 0, Math.PI*2); ctx.fill();
-            } else {
-                ctx.beginPath();
-                const points = 7;
-                for(let i=0; i<=points; i++) {
-                    const ang = i*(Math.PI*2/points);
-                    const r = (trunkW/2) * (0.85 + rng()*0.3);
-                    const px = Math.cos(ang)*r;
-                    const py = Math.sin(ang)*r;
-                    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
-                }
-                ctx.fill();
-            }
-
-            // Details on trunk (e.g. birch dots)
-            if (species.type === 'sparse_dots') {
-                ctx.fillStyle = "#333";
-                for(let i=0; i<5; i++) {
-                    const tx = (rng()-0.5)*trunkW*0.6;
-                    const ty = (rng()-0.5)*trunkW*0.6;
-                    ctx.fillRect(tx, ty, 3, 2);
-                }
-            }
-
+             // Draw Trunk Base (Collision visual)
+            ctx.fillStyle = this.species.trunkColor || '#4e342e';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
         } else if (this.state === 'fallen') {
             // Simplified fallen state
             ctx.rotate(Math.PI / 2);
-            ctx.fillStyle = species.trunkColor;
-            ctx.fillRect(-trunkW, -trunkW/4, trunkW*2, trunkW/2);
+            ctx.fillStyle = this.species.trunkColor || '#4e342e';
+            ctx.fillRect(-20, -10, 100, 20);
         } else if (this.state === 'logs') {
-            ctx.fillStyle = species.trunkColor;
+            ctx.fillStyle = this.species.trunkColor || '#4e342e';
             ctx.strokeStyle = '#3e2723';
             ctx.beginPath(); ctx.rect(-10, -5, 8, 4); ctx.fill(); ctx.stroke();
             ctx.beginPath(); ctx.rect(5, 5, 8, 4); ctx.fill(); ctx.stroke();
@@ -214,154 +182,31 @@ export class Tree extends GameObject {
         ctx.restore();
     }
 
-    renderCrown(ctx, player) {
+    renderCrown(ctx) {
         if (this.state !== 'standing') return;
-
-        const rng = mulberry32(this.seed);
-        const species = this.species;
-        const size = this.crownSize;
-
-        if (species.type === 'column') return; // Cactus has no separate crown
-
-        // Transparency Logic
-        const dist = Math.hypot(this.x - player.x, this.y - player.y);
-        const isTransparent = dist < 500; // 5 tiles approx
 
         ctx.save();
         ctx.translate(this.x, this.y);
-        if (isTransparent) ctx.globalAlpha = 0.4;
 
-        const crownColor = species.crownColors[Math.floor(rng() * species.crownColors.length)];
-        ctx.fillStyle = crownColor;
-        ctx.strokeStyle = crownColor;
+        if (this.image && this.image.complete && this.image.naturalWidth > 0) {
+            const aspect = this.image.naturalWidth / this.image.naturalHeight;
+            const h = this.displayHeight;
+            const w = h * aspect;
 
-        // Shadow under crown
-        ctx.fillStyle = "rgba(0,0,0,0.1)";
-        ctx.beginPath(); ctx.arc(0, 0, size*0.4, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = crownColor; // Reset
+            // Sway Animation
+            const sway = Math.sin(this.time * 2 + this.x * 0.1) * 3;
 
-        switch(species.type) {
-            case 'palm': {
-                const leaves = 6;
-                for(let i=0; i<leaves; i++) {
-                    const angle = (i/leaves)*Math.PI*2 + rng();
-                    const len = size*0.6;
-                    ctx.beginPath();
-                    ctx.moveTo(0,0);
-                    const cpx = Math.cos(angle)*len*0.5;
-                    const cpy = Math.sin(angle)*len*0.5 - 20;
-                    const ex = Math.cos(angle)*len;
-                    const ey = Math.sin(angle)*len;
-
-                    ctx.quadraticCurveTo(cpx, cpy, ex, ey);
-                    ctx.lineWidth = size*0.05;
-                    ctx.stroke();
-                }
-                break;
-            }
-            case 'flat': { // Acacia
-                const blobs = 5;
-                for(let i=0; i<blobs; i++) {
-                    const angle = (i/blobs)*Math.PI*2;
-                    const dist = size*0.3;
-                    ctx.beginPath();
-                    ctx.ellipse(Math.cos(angle)*dist, Math.sin(angle)*dist, size*0.2, size*0.15, 0, 0, Math.PI*2);
-                    ctx.fill();
-                }
-                break;
-            }
-            case 'layered_triangles': // Spruce, Fir
-            case 'smooth_cone': {
-                const layers = 4 + Math.floor(rng()*3);
-                const step = size / layers;
-                for(let i=0; i<layers; i++) {
-                    const layerW = size * (0.6 - (i/layers)*0.5); // Tapering
-                    const yPos = -i * (step * 0.7); // Going up
-                    ctx.beginPath();
-                    ctx.moveTo(0, yPos - step);
-                    ctx.lineTo(layerW, yPos);
-                    ctx.lineTo(-layerW, yPos);
-                    ctx.fill();
-                }
-                break;
-            }
-            case 'high_canopy': // Pine
-                ctx.beginPath();
-                ctx.arc(0, -size*0.2, size*0.35, 0, Math.PI*2);
-                ctx.fill();
-                // Add some irregularities
-                for(let i=0; i<5; i++) {
-                    const a = rng()*Math.PI*2;
-                    const r = size*0.35;
-                    ctx.beginPath(); ctx.arc(Math.cos(a)*r, -size*0.2 + Math.sin(a)*r, size*0.15, 0, Math.PI*2); ctx.fill();
-                }
-                break;
-            case 'drooping_lines': // Willow
-                ctx.lineWidth = 2;
-                const branches = 40;
-                for(let i=0; i<branches; i++) {
-                    const angle = rng() * Math.PI * 2;
-                    const dist = rng() * size * 0.3;
-                    const len = size * (0.6 + rng()*0.6);
-                    ctx.beginPath();
-                    const sx = Math.cos(angle)*dist;
-                    const sy = Math.sin(angle)*dist;
-                    ctx.moveTo(sx, sy);
-                    ctx.quadraticCurveTo(sx*1.2, sy + len*0.3, sx, sy + len);
-                    ctx.stroke();
-                }
-                break;
-            case 'huge_leaves': // Banana
-                const leaves = 6 + Math.floor(rng()*3);
-                for(let i=0; i<leaves; i++) {
-                    const angle = (i/leaves) * Math.PI * 2;
-                    ctx.save();
-                    ctx.rotate(angle);
-                    ctx.beginPath();
-                    ctx.ellipse(size*0.3, 0, size*0.3, size*0.1, 0, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.beginPath(); // Leaf vein
-                    ctx.strokeStyle = "rgba(0,0,0,0.1)";
-                    ctx.lineWidth = 1;
-                    ctx.moveTo(0,0); ctx.lineTo(size*0.6, 0);
-                    ctx.stroke();
-                    ctx.restore();
-                }
-                break;
-            case 'tall_column': // Poplar
-                ctx.beginPath();
-                ctx.ellipse(0, -size*0.2, size*0.15, size*0.6, 0, 0, Math.PI*2);
-                ctx.fill();
-                break;
-            case 'sparse_dots': // Birch
-            case 'sparse':
-            case 'sparse_needles': // Larch
-                ctx.globalAlpha = isTransparent ? 0.4 : 0.8;
-                for(let i=0; i<20; i++) {
-                    const a = rng()*Math.PI*2;
-                    const r = rng()*size*0.4;
-                    ctx.beginPath();
-                    ctx.arc(Math.cos(a)*r, Math.sin(a)*r, size*0.1, 0, Math.PI*2);
-                    ctx.fill();
-                }
-                break;
-            case 'complex_lobes': // Oak
-            case 'fat_trunk': // Baobab
-            case 'roots_visible': // Mangrove
-            case 'lobes':
-            default:
-                // Standard lobes
-                const lobeCount = 10 + Math.floor(rng()*5);
-                for(let i=0; i<lobeCount; i++) {
-                    const ang = rng()*Math.PI*2;
-                    const dist = rng()*size*0.35;
-                    const rad = size*(0.15+rng()*0.1);
-                    ctx.beginPath();
-                    ctx.arc(Math.cos(ang)*dist, Math.sin(ang)*dist, rad, 0, Math.PI*2);
-                    ctx.fill();
-                }
-                ctx.beginPath(); ctx.arc(0,0,size*0.25, 0, Math.PI*2); ctx.fill();
-                break;
+            // Draw anchored at bottom center (image represents crown above head)
+            ctx.translate(sway, 0);
+            ctx.drawImage(this.image, -w / 2, -h, w, h);
+        } else {
+            // Fallback placeholder
+            ctx.fillStyle = this.species.crownColors ? this.species.crownColors[0] : 'green';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-20, -100);
+            ctx.lineTo(20, -100);
+            ctx.fill();
         }
 
         ctx.restore();
@@ -376,7 +221,7 @@ export class Tree extends GameObject {
             if (hasAxe) {
                 actions.push({
                     label: 'Zetnij (🪓)',
-                    action: () => { this.state = 'fallen'; return 'update'; }
+                    action: () => { this.state = 'fallen'; this.cache = null; return 'update'; }
                 });
             } else {
                 actions.push({
@@ -388,7 +233,7 @@ export class Tree extends GameObject {
             if (hasAxe) {
                 actions.push({
                     label: 'Porąb (🪓)',
-                    action: () => { this.state = 'logs'; return 'update'; }
+                    action: () => { this.state = 'logs'; this.cache = null; return 'update'; }
                 });
             }
         } else if (this.state === 'logs') {
@@ -407,12 +252,36 @@ export class Tree extends GameObject {
 export class Bush extends GameObject {
     constructor(x, y, species, seed, size) {
         super(x, y, 'bush');
-        this.species = species || { name: "Jagody", colors: ["#2e7d32"], size: [60, 100], type: 'bush_dots', aquatic: false };
+        this.species = species || {
+            name: "Jagody",
+            colors: ["#2e7d32"],
+            size: [60, 100],
+            type: 'bush_dots',
+            aquatic: false,
+            fruit: {
+                id: 'berry',
+                name: "Jagody",
+                stats: { nutrition: 10, hydration: 5 },
+                color: '#9c27b0',
+                countRange: [2, 5],
+                icon: '🫐'
+            }
+        };
         this.seed = seed || Date.now();
         this.size = size || 60; // Default or passed
-        this.fruits = 3; // Logic for berries logic, maybe only for specific species?
-        // Only berry bushes have fruits for now
-        this.hasFruits = (this.species.id === 'berry' || this.species.name === 'Jagody');
+
+        this.fruits = 0;
+        // Generalized fruit logic: determines count based on species definition
+        if (this.species.fruit) {
+             const rng = mulberry32(this.seed + 100);
+             const min = this.species.fruit.countRange ? this.species.fruit.countRange[0] : 0;
+             const max = this.species.fruit.countRange ? this.species.fruit.countRange[1] : 0;
+             this.fruits = Math.floor(min + rng() * (max - min + 1));
+        }
+    }
+
+    get hasFruits() {
+        return this.fruits > 0;
     }
 
     render(ctx) {
@@ -421,7 +290,10 @@ export class Bush extends GameObject {
         const size = this.size;
 
         ctx.save();
-        ctx.translate(this.x, this.y);
+
+        // Sway Animation
+        const sway = Math.sin(this.time * 3 + this.y * 0.1) * 2;
+        ctx.translate(this.x + sway, this.y);
 
         ctx.fillStyle = species.colors[0];
 
@@ -487,12 +359,14 @@ export class Bush extends GameObject {
         else {
             // Standard bush
             ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
+        }
 
             // Fruits
-            if (this.hasFruits && this.fruits > 0) {
-                ctx.fillStyle = '#9c27b0';
+            if (this.hasFruits && this.species.fruit) {
+                ctx.fillStyle = this.species.fruit.color || '#9c27b0';
+                const count = Math.max(1, this.fruits);
                 for(let i=0; i<this.fruits; i++) {
-                    const angle = (Math.PI * 2 * i) / 3;
+                    const angle = (Math.PI * 2 * i) / count;
                     ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
                 }
             }
@@ -503,29 +377,50 @@ export class Bush extends GameObject {
 
     getActions(character) {
         const actions = [];
-        if (this.hasFruits && this.fruits > 0) {
+        if (this.hasFruits) {
+            const fruitDef = this.species.fruit;
             actions.push({
-                label: 'Zbierz (🫳)',
+                label: `Zbierz ${fruitDef.name} (🫳)`,
                 action: () => {
                     this.fruits--;
                     const item = new Item(
-                        `berry_${Date.now()}`,
-                        `Jagody`,
+                        `${fruitDef.id}_${Date.now()}`,
+                        fruitDef.name,
                         'food',
                         0.1,
-                        '🫐'
+                        fruitDef.icon || '🫐'
                     );
-                    item.stats = { nutrition: 10, hydration: 5 }; // Add stats to item
+                    item.stats = fruitDef.stats || {};
                     character.inventory.addItem(item);
                     return 'update';
                 }
             });
         }
         // General action for others?
+        actions.push({
+            label: 'Zbadaj (👀)',
+            action: () => { console.log(`To jest ${this.species.name}.`); }
+        });
+
         if (this.species.type === 'reeds') {
              actions.push({
-                label: 'Zbadaj',
-                action: () => { console.log("To jest trzcina."); }
+                label: 'Zbierz Trzcinę (🌾)',
+                action: () => {
+                    const item = new Item(`reeds_${Date.now()}`, `Trzcina`, 'resource', 0.2, '🌾');
+                    if (character.inventory.addItem(item)) {
+                        return 'remove';
+                    }
+                }
+            });
+        } else if (this.species.type === 'tuft' || this.species.id === 'dry_bush') {
+             actions.push({
+                label: 'Zbierz Patyki (🪵)',
+                action: () => {
+                    const item = new Item(`stick_${Date.now()}`, `Patyk`, 'resource', 0.1, '🪵');
+                    if (character.inventory.addItem(item)) {
+                        return 'remove';
+                    }
+                }
             });
         }
         return actions;
