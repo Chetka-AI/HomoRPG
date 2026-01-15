@@ -437,12 +437,35 @@ export class Tree extends GameObject {
 export class Bush extends GameObject {
     constructor(x, y, species, seed, size) {
         super(x, y, 'bush');
-        this.species = species || { name: "Jagody", colors: ["#2e7d32"], size: [60, 100], type: 'bush_dots', aquatic: false };
+        this.species = species || {
+            name: "Jagody",
+            colors: ["#2e7d32"],
+            size: [60, 100],
+            type: 'bush_dots',
+            aquatic: false,
+            fruit: {
+                id: 'berry',
+                name: "Jagody",
+                stats: { nutrition: 10, hydration: 5 },
+                color: '#9c27b0',
+                countRange: [2, 5],
+                icon: '🫐'
+            }
+        };
         this.seed = seed || Date.now();
         this.size = size || 60; // Default or passed
-        this.fruits = 3; // Logic for berries logic, maybe only for specific species?
-        // Only berry bushes have fruits for now
-        this.hasFruits = (this.species.id === 'berry' || this.species.name === 'Jagody');
+
+        this.fruits = 0;
+        if (this.species.fruit) {
+             const rng = mulberry32(this.seed + 100);
+             const min = this.species.fruit.countRange ? this.species.fruit.countRange[0] : 0;
+             const max = this.species.fruit.countRange ? this.species.fruit.countRange[1] : 0;
+             this.fruits = Math.floor(min + rng() * (max - min + 1));
+        }
+    }
+
+    get hasFruits() {
+        return this.fruits > 0;
     }
 
     render(ctx) {
@@ -519,8 +542,8 @@ export class Bush extends GameObject {
             ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
 
             // Fruits
-            if (this.hasFruits && this.fruits > 0) {
-                ctx.fillStyle = '#9c27b0';
+            if (this.hasFruits) {
+                ctx.fillStyle = this.species.fruit.color || '#9c27b0';
                 for(let i=0; i<this.fruits; i++) {
                     const angle = (Math.PI * 2 * i) / 3;
                     ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
@@ -533,19 +556,20 @@ export class Bush extends GameObject {
 
     getActions(character) {
         const actions = [];
-        if (this.hasFruits && this.fruits > 0) {
+        if (this.hasFruits) {
             actions.push({
                 label: 'Zbierz (🫳)',
                 action: () => {
                     this.fruits--;
+                    const fruitDef = this.species.fruit;
                     const item = new Item(
-                        `berry_${Date.now()}`,
-                        `Jagody`,
+                        `${fruitDef.id}_${Date.now()}`,
+                        fruitDef.name,
                         'food',
                         0.1,
-                        '🫐'
+                        fruitDef.icon || '🫐'
                     );
-                    item.stats = { nutrition: 10, hydration: 5 }; // Add stats to item
+                    item.stats = fruitDef.stats || {};
                     character.inventory.addItem(item);
                     return 'update';
                 }

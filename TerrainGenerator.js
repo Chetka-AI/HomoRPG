@@ -228,7 +228,21 @@ export const TREE_SPECIES = {
 
 export const SHRUB_SPECIES = {
     fern: { name: "Paproć", colors: ["#66bb6a"], size: [80, 140], type: 'fern', aquatic: false },
-    berry: { name: "Jagody", colors: ["#2e7d32"], size: [60, 100], type: 'bush_dots', aquatic: false },
+    berry: {
+        name: "Jagody",
+        colors: ["#2e7d32"],
+        size: [60, 100],
+        type: 'bush_dots',
+        aquatic: false,
+        fruit: {
+            id: 'berry',
+            name: "Jagody",
+            stats: { nutrition: 10, hydration: 5 },
+            color: '#9c27b0',
+            countRange: [2, 5],
+            icon: '🫐'
+        }
+    },
     dry_bush: { name: "Suche krzaki", colors: ["#a1887f"], size: [70, 110], type: 'tuft', aquatic: false },
     reeds: { name: "Trzcina", colors: ["#dce775", "#c0ca33"], size: [60, 100], type: 'reeds', aquatic: true },
     lilypad: { name: "Lilia wodna", colors: ["#81c784"], size: [40, 60], type: 'lily', aquatic: true },
