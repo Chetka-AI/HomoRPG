@@ -161,6 +161,8 @@ export class WorldManager {
     constructor() {
         this.activeChunks = new Map(); // "x,y" -> Chunk
         this.savedChunks = new Map(); // "x,y" -> Array<GameObject>
+        this.renderList = [];
+        this.renderListDirty = true;
         this.biomeCanvas = document.createElement('canvas');
         this.biomeCtx = null;
         this.heightCanvas = document.createElement('canvas');
@@ -202,6 +204,7 @@ export class WorldManager {
         const cy = Math.floor(player.y / CHUNK_SIZE_PX);
 
         const loadedKeys = new Set();
+        let chunksChanged = false;
 
         // Load 3x3 area
         for(let y = cy - 1; y <= cy + 1; y++) {
@@ -224,6 +227,7 @@ export class WorldManager {
                          chunk = new Chunk(x, y, biome, this.heightCtx, true);
                     }
                     this.activeChunks.set(key, chunk);
+                    chunksChanged = true;
                 }
             }
         }
@@ -236,7 +240,12 @@ export class WorldManager {
                     this.savedChunks.set(key, chunk.objects);
                 }
                 this.activeChunks.delete(key);
+                chunksChanged = true;
             }
+        }
+
+        if (chunksChanged) {
+            this.renderListDirty = true;
         }
     }
 
@@ -277,6 +286,17 @@ export class WorldManager {
         return false;
     }
 
+    rebuildRenderList() {
+        this.renderList.length = 0;
+        for (const chunk of this.activeChunks.values()) {
+            for (let i = 0; i < chunk.objects.length; i++) {
+                this.renderList.push(chunk.objects[i]);
+            }
+        }
+        this.renderList.sort((a, b) => a.y - b.y);
+        this.renderListDirty = false;
+    }
+
     // Split Rendering
     renderBottom(ctx) {
         if (!this.mapsLoaded) return;
@@ -287,11 +307,11 @@ export class WorldManager {
         }
 
         // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        let allObjects = [];
-        for (const chunk of this.activeChunks.values()) {
-            allObjects = allObjects.concat(chunk.objects);
+        if (this.renderListDirty) {
+            this.rebuildRenderList();
         }
-        allObjects.sort((a, b) => a.y - b.y);
+
+        const allObjects = this.renderList;
 
         for (const obj of allObjects) {
             // Standard render method (Trunk only for trees, Full for others)
@@ -303,15 +323,11 @@ export class WorldManager {
         if (!this.mapsLoaded) return;
 
         // Render Crowns (Upper Layer)
-        // We can reuse the collected objects from renderBottom if we optimized,
-        // but collecting again is safer/easier for now.
-        let allObjects = [];
-        for (const chunk of this.activeChunks.values()) {
-            allObjects = allObjects.concat(chunk.objects);
+        if (this.renderListDirty) {
+            this.rebuildRenderList();
         }
-        // Crowns also need depth sorting relative to each other?
-        // Yes, generally.
-        allObjects.sort((a, b) => a.y - b.y);
+
+        const allObjects = this.renderList;
 
         for (const obj of allObjects) {
             if (obj.renderCrown) {
@@ -329,6 +345,7 @@ export class WorldManager {
             const chunk = this.activeChunks.get(key);
             chunk.objects.push(obj);
             chunk.isModified = true;
+            this.renderListDirty = true;
         }
     }
 
@@ -338,6 +355,7 @@ export class WorldManager {
             if (idx !== -1) {
                 chunk.objects.splice(idx, 1);
                 chunk.isModified = true;
+                this.renderListDirty = true;
                 return;
             }
         }
