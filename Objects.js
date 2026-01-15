@@ -142,6 +142,74 @@ export class Tree extends GameObject {
         }
 
         this.state = 'standing'; // 'standing', 'fallen', 'logs'
+        this.cache = null;
+    }
+
+    updateCache() {
+        if (typeof document === 'undefined') return;
+
+        const trunkW = this.trunkSize;
+        const size = Math.ceil(trunkW * 3);
+        this.cache = document.createElement('canvas');
+        this.cache.width = size;
+        this.cache.height = size;
+        const ctx = this.cache.getContext('2d');
+
+        ctx.translate(size / 2, size / 2);
+
+        const rng = mulberry32(this.seed);
+        this.drawStandingTrunk(ctx, rng);
+    }
+
+    drawStandingTrunk(ctx, rng) {
+        const species = this.species;
+        const trunkW = this.trunkSize;
+
+        // --- TRUNK ---
+        ctx.fillStyle = "rgba(0,0,0,0.5)"; // Shadow base
+        ctx.beginPath(); ctx.ellipse(5, 5, trunkW/2, trunkW/2, 0, 0, Math.PI*2); ctx.fill();
+
+        ctx.fillStyle = species.trunkColor;
+
+        if (species.type === 'column') { // Cactus
+            ctx.beginPath(); ctx.arc(0, 0, trunkW*0.4, 0, Math.PI*2); ctx.fill();
+            if(rng()>0.5) { // Arm
+                ctx.beginPath(); ctx.arc(trunkW*0.4, -trunkW*0.2, trunkW*0.2, 0, Math.PI*2); ctx.fill();
+            }
+        } else if (species.type === 'roots_visible') { // Mangrove
+            ctx.beginPath();
+            for(let i=0; i<5; i++) {
+                const ang = (i/5)*Math.PI*2;
+                const r = trunkW*0.8;
+                ctx.moveTo(Math.cos(ang)*r, Math.sin(ang)*r);
+                ctx.lineTo(0,0);
+            }
+            ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, 0, trunkW*0.3, 0, Math.PI*2); ctx.fill();
+        } else if (species.type === 'fat_trunk') { // Baobab
+            ctx.beginPath(); ctx.arc(0, 0, trunkW*0.6, 0, Math.PI*2); ctx.fill();
+        } else {
+            ctx.beginPath();
+            const points = 7;
+            for(let i=0; i<=points; i++) {
+                const ang = i*(Math.PI*2/points);
+                const r = (trunkW/2) * (0.85 + rng()*0.3);
+                const px = Math.cos(ang)*r;
+                const py = Math.sin(ang)*r;
+                if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+            }
+            ctx.fill();
+        }
+
+        // Details on trunk (e.g. birch dots)
+        if (species.type === 'sparse_dots') {
+            ctx.fillStyle = "#333";
+            for(let i=0; i<5; i++) {
+                const tx = (rng()-0.5)*trunkW*0.6;
+                const ty = (rng()-0.5)*trunkW*0.6;
+                ctx.fillRect(tx, ty, 3, 2);
+            }
+        }
     }
 
     render(ctx) {
@@ -153,52 +221,14 @@ export class Tree extends GameObject {
         ctx.translate(this.x, this.y);
 
         if (this.state === 'standing') {
-            // --- TRUNK ---
-            ctx.fillStyle = "rgba(0,0,0,0.5)"; // Shadow base
-            ctx.beginPath(); ctx.ellipse(5, 5, trunkW/2, trunkW/2, 0, 0, Math.PI*2); ctx.fill();
-
-            ctx.fillStyle = species.trunkColor;
-
-            if (species.type === 'column') { // Cactus
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.4, 0, Math.PI*2); ctx.fill();
-                if(rng()>0.5) { // Arm
-                    ctx.beginPath(); ctx.arc(trunkW*0.4, -trunkW*0.2, trunkW*0.2, 0, Math.PI*2); ctx.fill();
-                }
-            } else if (species.type === 'roots_visible') { // Mangrove
-                ctx.beginPath();
-                for(let i=0; i<5; i++) {
-                    const ang = (i/5)*Math.PI*2;
-                    const r = trunkW*0.8;
-                    ctx.moveTo(Math.cos(ang)*r, Math.sin(ang)*r);
-                    ctx.lineTo(0,0);
-                }
-                ctx.stroke();
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.3, 0, Math.PI*2); ctx.fill();
-            } else if (species.type === 'fat_trunk') { // Baobab
-                ctx.beginPath(); ctx.arc(0, 0, trunkW*0.6, 0, Math.PI*2); ctx.fill();
+            if (!this.cache && typeof document !== 'undefined') {
+                this.updateCache();
+            }
+            if (this.cache) {
+                ctx.drawImage(this.cache, -this.cache.width / 2, -this.cache.height / 2);
             } else {
-                ctx.beginPath();
-                const points = 7;
-                for(let i=0; i<=points; i++) {
-                    const ang = i*(Math.PI*2/points);
-                    const r = (trunkW/2) * (0.85 + rng()*0.3);
-                    const px = Math.cos(ang)*r;
-                    const py = Math.sin(ang)*r;
-                    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
-                }
-                ctx.fill();
+                this.drawStandingTrunk(ctx, rng);
             }
-
-            // Details on trunk (e.g. birch dots)
-            if (species.type === 'sparse_dots') {
-                ctx.fillStyle = "#333";
-                for(let i=0; i<5; i++) {
-                    const tx = (rng()-0.5)*trunkW*0.6;
-                    const ty = (rng()-0.5)*trunkW*0.6;
-                    ctx.fillRect(tx, ty, 3, 2);
-                }
-            }
-
         } else if (this.state === 'fallen') {
             // Simplified fallen state
             ctx.rotate(Math.PI / 2);
@@ -376,7 +406,7 @@ export class Tree extends GameObject {
             if (hasAxe) {
                 actions.push({
                     label: 'Zetnij (🪓)',
-                    action: () => { this.state = 'fallen'; return 'update'; }
+                    action: () => { this.state = 'fallen'; this.cache = null; return 'update'; }
                 });
             } else {
                 actions.push({
@@ -388,7 +418,7 @@ export class Tree extends GameObject {
             if (hasAxe) {
                 actions.push({
                     label: 'Porąb (🪓)',
-                    action: () => { this.state = 'logs'; return 'update'; }
+                    action: () => { this.state = 'logs'; this.cache = null; return 'update'; }
                 });
             }
         } else if (this.state === 'logs') {
