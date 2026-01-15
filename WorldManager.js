@@ -289,8 +289,7 @@ export class WorldManager {
         return false;
     }
 
-    // Split Rendering
-    renderBottom(ctx) {
+    renderWorld(ctx, player) {
         if (!this.mapsLoaded) return;
 
         // Render Terrain
@@ -298,29 +297,24 @@ export class WorldManager {
             chunk.renderTerrain(ctx);
         }
 
-        // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        this.renderedObjects = [];
+        // Collect Objects
+        let objectsToRender = [];
         for (const chunk of this.activeChunks.values()) {
-            this.renderedObjects = this.renderedObjects.concat(chunk.objects);
+            objectsToRender = objectsToRender.concat(chunk.objects);
         }
-        this.renderedObjects.sort((a, b) => a.y - b.y);
 
-        for (const obj of this.renderedObjects) {
-            // Standard render method (Trunk only for trees, Full for others)
-            obj.render(ctx);
+        // Add Player
+        if (player) {
+            objectsToRender.push(player);
         }
-    }
 
-    renderTop(ctx, player) {
-        if (!this.mapsLoaded) return;
+        // Sort by Y for Depth
+        objectsToRender.sort((a, b) => a.y - b.y);
 
-        // Render Crowns (Upper Layer)
-        // Using optimized collection from renderBottom
-        const objectsToRender = this.renderedObjects || [];
-
+        // Render All
         for (const obj of objectsToRender) {
-            if (obj.renderCrown) {
-                obj.renderCrown(ctx, player);
+            if (obj.render) {
+                obj.render(ctx, player);
             }
         }
     }
