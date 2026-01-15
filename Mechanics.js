@@ -513,8 +513,8 @@ export class Pathfinder {
 
         while (!openSet.isEmpty()) {
             if (iterations++ > maxIterations) {
-                console.warn("Pathfinder reached max iterations");
-                return null;
+                console.warn("Pathfinder reached max iterations - falling back to direct line");
+                return [this.gridToWorld(endNode.x, endNode.y)];
             }
 
             const current = openSet.extractMin();
@@ -553,8 +553,8 @@ export class Pathfinder {
         }
 
         // Fallback: direct line if no path found (or return null)
-        console.log("Path not found");
-        return null;
+        console.log("Path not found - falling back to direct line");
+        return [this.gridToWorld(endNode.x, endNode.y)];
     }
 
     getNeighbors(node) {
