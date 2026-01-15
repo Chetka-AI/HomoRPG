@@ -157,8 +157,9 @@ export class CharacterStats {
 
     getLevelCost(level) {
         // Curve: Harder to level up as you get stronger.
-        // Formula: 100 * (level / 50)^4
-        return 100 * Math.pow(level / 50.0, 4);
+        // Formula: 10 + 100 * (level / 50)^4
+        // Adds a base cost so low levels aren't instantaneous.
+        return 10 + 100 * Math.pow(level / 50.0, 4);
     }
 
     // Derived Metric for Character.js

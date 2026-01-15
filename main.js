@@ -315,7 +315,7 @@ class Game {
 
         // No bounds rect anymore (infinite)
 
-        this.world.renderBottom(this.ctx);
+        this.world.renderWorld(this.ctx, this.player);
 
         // Debug Grid (Local to player)
         this.ctx.strokeStyle = 'rgba(255,255,255,0.05)';
@@ -347,9 +347,6 @@ class Game {
             }
         }
 
-        this.player.render(this.ctx);
-        this.world.renderTop(this.ctx, this.player);
-
         this.ctx.restore();
         
         this.ctx.fillStyle = '#fff';
@@ -380,5 +377,5 @@ class Game {
 }
 
 window.addEventListener('load', () => {
-    new Game();
+    window.game = new Game();
 });
