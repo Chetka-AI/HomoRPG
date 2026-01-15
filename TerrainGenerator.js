@@ -251,6 +251,21 @@ export const SHRUB_SPECIES = {
             icon: '🫐'
         }
     },
+    raspberry: {
+        name: "Maliny",
+        colors: ["#2e7d32", "#4caf50"],
+        size: [50, 90],
+        type: 'bush_dots',
+        aquatic: false,
+        fruit: {
+            id: 'raspberry',
+            name: "Maliny",
+            stats: { nutrition: 8, hydration: 3 },
+            color: '#d81b60',
+            countRange: [3, 6],
+            icon: '🍇'
+        }
+    },
     dry_bush: { name: "Suche krzaki", colors: ["#a1887f"], size: [70, 110], type: 'tuft', aquatic: false },
     reeds: { name: "Trzcina", colors: ["#dce775", "#c0ca33"], size: [60, 100], type: 'reeds', aquatic: true },
     lilypad: { name: "Lilia wodna", colors: ["#81c784"], size: [40, 60], type: 'lily', aquatic: true },
@@ -280,7 +295,7 @@ export const BIOME_CONFIG = {
             {id: 'poplar', chance: 0.05},
             {id: 'linden', chance: 0.05}
         ],
-        shrubs: [{id: 'fern', chance: 0.3}, {id: 'berry', chance: 0.2}, {id: 'flower_pansy', chance: 0.1}],
+        shrubs: [{id: 'fern', chance: 0.3}, {id: 'berry', chance: 0.15}, {id: 'raspberry', chance: 0.15}, {id: 'flower_pansy', chance: 0.1}],
         stones: [{id: 'small', chance: 0.02}, {id: 'medium', chance: 0.01}],
         density: 0.05
     },
