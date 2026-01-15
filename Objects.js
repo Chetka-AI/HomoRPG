@@ -576,10 +576,30 @@ export class Bush extends GameObject {
             });
         }
         // General action for others?
+        actions.push({
+            label: 'Zbadaj (👀)',
+            action: () => { console.log(`To jest ${this.species.name}.`); }
+        });
+
         if (this.species.type === 'reeds') {
              actions.push({
-                label: 'Zbadaj',
-                action: () => { console.log("To jest trzcina."); }
+                label: 'Zbierz Trzcinę (🌾)',
+                action: () => {
+                    const item = new Item(`reeds_${Date.now()}`, `Trzcina`, 'resource', 0.2, '🌾');
+                    if (character.inventory.addItem(item)) {
+                        return 'remove';
+                    }
+                }
+            });
+        } else if (this.species.type === 'tuft' || this.species.id === 'dry_bush') {
+             actions.push({
+                label: 'Zbierz Patyki (🪵)',
+                action: () => {
+                    const item = new Item(`stick_${Date.now()}`, `Patyk`, 'resource', 0.1, '🪵');
+                    if (character.inventory.addItem(item)) {
+                        return 'remove';
+                    }
+                }
             });
         }
         return actions;
