@@ -361,28 +361,14 @@ export class Bush extends GameObject {
             ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
         }
 
-        }
-
-        if (this.hasFruits && this.species.fruit) {
-            ctx.fillStyle = this.species.fruit.color || '#9c27b0';
-            // Stable RNG for fruit positions
-            const fruitRng = mulberry32(this.seed + 777);
-            for(let i=0; i<this.fruits; i++) {
-                const angle = fruitRng() * Math.PI * 2;
-                const dist = fruitRng() * size * 0.4;
-                ctx.beginPath();
-                ctx.arc(Math.cos(angle)*dist, Math.sin(angle)*dist, 3, 0, Math.PI*2);
-                ctx.fill();
-        // Fruits
-        if (this.hasFruits) {
-            const fruitDef = this.species.fruit || {};
-            ctx.fillStyle = fruitDef.color || '#9c27b0';
-            const count = this.fruits;
-            // Distribute fruits based on bush size
-            const radius = size * 0.3;
-            for(let i=0; i<count; i++) {
-                const angle = (Math.PI * 2 * i) / count;
-                ctx.beginPath(); ctx.arc(Math.cos(angle)*radius, Math.sin(angle)*radius, 3, 0, Math.PI*2); ctx.fill();
+            // Fruits
+            if (this.hasFruits && this.species.fruit) {
+                ctx.fillStyle = this.species.fruit.color || '#9c27b0';
+                const maxFruits = (this.species.fruit.countRange && this.species.fruit.countRange[1]) || 5;
+                for(let i=0; i<this.fruits; i++) {
+                    const angle = (Math.PI * 2 * i) / maxFruits;
+                    ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
+                }
             }
         }
 
@@ -391,7 +377,7 @@ export class Bush extends GameObject {
 
     getActions(character) {
         const actions = [];
-        if (this.hasFruits) {
+        if (this.hasFruits && this.species.fruit) {
             actions.push({
                 label: 'Zbierz (🫳)',
                 action: () => {
