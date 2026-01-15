@@ -361,6 +361,18 @@ export class Bush extends GameObject {
             ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
         }
 
+        }
+
+        if (this.hasFruits && this.species.fruit) {
+            ctx.fillStyle = this.species.fruit.color || '#9c27b0';
+            // Stable RNG for fruit positions
+            const fruitRng = mulberry32(this.seed + 777);
+            for(let i=0; i<this.fruits; i++) {
+                const angle = fruitRng() * Math.PI * 2;
+                const dist = fruitRng() * size * 0.4;
+                ctx.beginPath();
+                ctx.arc(Math.cos(angle)*dist, Math.sin(angle)*dist, 3, 0, Math.PI*2);
+                ctx.fill();
         // Fruits
         if (this.hasFruits) {
             const fruitDef = this.species.fruit || {};
