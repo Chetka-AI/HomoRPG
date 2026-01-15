@@ -168,6 +168,125 @@ export class Inventory {
 
             this.consumeItem(item);
         });
+
+        // Touch Support (Long Press to Drag)
+        let dragSource = null;
+        let dragGhost = null;
+        let longPressTimer = null;
+        let isDragging = false;
+        let startTouch = null;
+
+        container.addEventListener('touchstart', (e) => {
+            const slot = e.target.closest('.inv-slot');
+            if (!slot || !slot.classList.contains('filled')) return;
+
+            // Only primary touch
+            if (e.touches.length > 1) return;
+
+            startTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
+            // Start Long Press Timer
+            longPressTimer = setTimeout(() => {
+                isDragging = true;
+
+                // Create Ghost
+                dragSource = {
+                    type: slot.dataset.type,
+                    index: slot.dataset.index
+                };
+
+                dragGhost = slot.cloneNode(true);
+                dragGhost.style.position = 'fixed';
+                dragGhost.style.pointerEvents = 'none';
+                dragGhost.style.zIndex = '1000';
+                dragGhost.style.opacity = '0.8';
+                dragGhost.style.width = `${slot.offsetWidth}px`;
+                dragGhost.style.height = `${slot.offsetHeight}px`;
+                dragGhost.style.left = `${startTouch.x - slot.offsetWidth/2}px`;
+                dragGhost.style.top = `${startTouch.y - slot.offsetHeight/2}px`;
+
+                document.body.appendChild(dragGhost);
+
+                // Add vibration feedback if available
+                if (navigator.vibrate) navigator.vibrate(50);
+
+            }, 300); // 300ms Long Press
+        }, { passive: false });
+
+        container.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 1) return;
+            const touch = e.touches[0];
+
+            if (isDragging) {
+                e.preventDefault(); // Prevent scrolling
+                if (dragGhost) {
+                    dragGhost.style.left = `${touch.clientX - dragGhost.offsetWidth/2}px`;
+                    dragGhost.style.top = `${touch.clientY - dragGhost.offsetHeight/2}px`;
+                }
+
+                // Highlight drop target
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                const slot = target ? target.closest('.inv-slot') : null;
+
+                // Clean up previous hover
+                container.querySelectorAll('.inv-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+                if (slot) {
+                    slot.classList.add('drag-over');
+                }
+            } else {
+                // Check if moved enough to cancel long press
+                if (startTouch) {
+                    const dx = touch.clientX - startTouch.x;
+                    const dy = touch.clientY - startTouch.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist > 10) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                        startTouch = null;
+                    }
+                }
+            }
+        }, { passive: false });
+
+        container.addEventListener('touchend', (e) => {
+            clearTimeout(longPressTimer);
+            startTouch = null;
+
+            if (isDragging) {
+                isDragging = false;
+                e.preventDefault(); // Prevent click simulation
+
+                if (dragGhost) {
+                    dragGhost.remove();
+                    dragGhost = null;
+                }
+
+                const touch = e.changedTouches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                const slot = target ? target.closest('.inv-slot') : null;
+
+                if (slot) {
+                    slot.classList.remove('drag-over');
+                    try {
+                        // Use dataset values
+                        this.handleMove(
+                            dragSource.type,
+                            dragSource.index,
+                            slot.dataset.type,
+                            slot.dataset.index
+                        );
+                    } catch (err) {
+                        console.error('Touch Drop Error', err);
+                    }
+                }
+
+                // Cleanup visual state
+                container.querySelectorAll('.inv-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
+                dragSource = null;
+            }
+        });
     }
 
     render() {
