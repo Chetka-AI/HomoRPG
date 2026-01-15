@@ -378,9 +378,9 @@ export function getBiomeData(chunkX, chunkY, biomeCtx, heightCtx) {
     const width = biomeCtx.canvas.width;
     const height = biomeCtx.canvas.height;
 
-    if (chunkX < 0 || chunkX >= width || chunkY < 0 || chunkY >= height) {
-        return BIOME_CONFIG.marine;
-    }
+    // Clamp coordinates to ensure valid image data access
+    chunkX = Math.max(0, Math.min(chunkX, width - 1));
+    chunkY = Math.max(0, Math.min(chunkY, height - 1));
 
     const p = biomeCtx.getImageData(chunkX, chunkY, 1, 1).data;
     const r=p[0], g=p[1], b=p[2];
