@@ -46,6 +46,7 @@ const PLANT_ARCHETYPES = {
     // Round/Lobed trees (Oak, Maple)
     deciduous: {
         type: 'lobes',
+        imagePath: 'assets/trees/tree_01.png',
         trunkColor: "#4e342e",
         trunkSize: [35, 60],
         crownColors: ["#2e7d32", "#1b5e20"],
@@ -56,6 +57,7 @@ const PLANT_ARCHETYPES = {
     // Conifers (Spruce, Pine)
     conifer: {
         type: 'layered_triangles',
+        imagePath: 'assets/trees/tree_03.png',
         trunkColor: "#3e2723",
         trunkSize: [25, 45],
         crownColors: ["#1b5e20", "#004d40"],
@@ -66,6 +68,7 @@ const PLANT_ARCHETYPES = {
     // High Canopy (Pine-like)
     high_canopy: {
         type: 'high_canopy',
+        imagePath: 'assets/trees/tree_04.png',
         trunkColor: "#5d4037",
         trunkSize: [30, 45],
         crownColors: ["#388e3c"],
@@ -76,6 +79,7 @@ const PLANT_ARCHETYPES = {
     // Tropical Broadleaf (Banana, Palm)
     broadleaf: {
         type: 'huge_leaves',
+        imagePath: 'assets/trees/tree_05.png',
         trunkColor: "#8d6e63",
         trunkSize: [20, 35],
         crownColors: ["#43a047"],
@@ -86,6 +90,7 @@ const PLANT_ARCHETYPES = {
     // Weeping (Willow)
     weeping: {
         type: 'drooping_lines',
+        imagePath: 'assets/trees/tree_06.png',
         trunkColor: "#424242",
         trunkSize: [40, 70],
         crownColors: ["#7cb342"],
@@ -96,6 +101,7 @@ const PLANT_ARCHETYPES = {
     // Flat top (Acacia)
     flat: {
         type: 'flat',
+        imagePath: 'assets/trees/tree_05.png', // Fallback to broadleaf style
         trunkColor: "#5d4037",
         trunkSize: [35, 55],
         crownColors: ["#7cb342"],
@@ -106,6 +112,7 @@ const PLANT_ARCHETYPES = {
     // Columnar (Poplar, Cactus)
     column: {
         type: 'tall_column',
+        imagePath: 'assets/trees/tree_02.png', // Use Birch-like style
         trunkColor: "#eeeeee",
         trunkSize: [20, 30],
         crownColors: ["#81c784"],
@@ -130,6 +137,7 @@ export const TREE_SPECIES = {
     birch: createSpecies(PLANT_ARCHETYPES.deciduous, {
         name: "Brzoza Brodawkowata",
         type: 'sparse_dots',
+        imagePath: 'assets/trees/tree_02.png',
         trunkColor: "#eeeeee", trunkSize: [20, 35],
         crownColors: ["#81c784", "#66bb6a"], crownSize: [220, 380],
         cluster: 0.8

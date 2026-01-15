@@ -289,8 +289,7 @@ export class WorldManager {
         return false;
     }
 
-    // Split Rendering
-    renderBottom(ctx) {
+    renderWorld(ctx, player) {
         if (!this.mapsLoaded) return;
 
         // Render Terrain
@@ -298,32 +297,31 @@ export class WorldManager {
             chunk.renderTerrain(ctx);
         }
 
-        // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        this.renderedObjects.length = 0;
+        // Collect Objects
+        let objectsToRender = [];
         for (const chunk of this.activeChunks.values()) {
-            const objs = chunk.objects;
-            for (let i = 0; i < objs.length; i++) {
-                this.renderedObjects.push(objs[i]);
+            objectsToRender = objectsToRender.concat(chunk.objects);
+        }
+
+        // Add Player
+        if (player) {
+            objectsToRender.push(player);
+        }
+
+        // Sort by Y for Depth
+        objectsToRender.sort((a, b) => a.y - b.y);
+
+        // Render Base Layer (Trunks, Players, Bushes, Stones)
+        for (const obj of objectsToRender) {
+            if (obj.render) {
+                obj.render(ctx, player);
             }
         }
-        this.renderedObjects.sort((a, b) => a.y - b.y);
 
-        for (const obj of this.renderedObjects) {
-            // Standard render method (Trunk only for trees, Full for others)
-            obj.render(ctx);
-        }
-    }
-
-    renderTop(ctx, player) {
-        if (!this.mapsLoaded) return;
-
-        // Render Crowns (Upper Layer)
-        // Using optimized collection from renderBottom
-        const objectsToRender = this.renderedObjects || [];
-
+        // Render Top Layer (Tree Crowns)
         for (const obj of objectsToRender) {
             if (obj.renderCrown) {
-                obj.renderCrown(ctx, player);
+                obj.renderCrown(ctx);
             }
         }
     }
