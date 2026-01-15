@@ -15,7 +15,9 @@ export class World {
     }
 
     update(dt) {
-        // Future: animations etc.
+        for (const obj of this.objects) {
+            if (obj.update) obj.update(dt);
+        }
     }
 
     render(ctx) {
@@ -47,6 +49,11 @@ export class GameObject {
         this.y = y;
         this.type = type;
         this.rotation = 0;
+        this.time = Math.random() * 1000;
+    }
+
+    update(dt) {
+        this.time += dt * 0.001; // Convert ms to seconds
     }
 
     render(ctx) {
@@ -258,7 +265,11 @@ export class Tree extends GameObject {
         const isTransparent = dist < 500; // 5 tiles approx
 
         ctx.save();
-        ctx.translate(this.x, this.y);
+
+        // Sway Animation
+        const sway = Math.sin(this.time * 2 + this.x * 0.1) * 5;
+        ctx.translate(this.x + sway, this.y);
+
         if (isTransparent) ctx.globalAlpha = 0.4;
 
         const crownColor = species.crownColors[Math.floor(rng() * species.crownColors.length)];
@@ -474,7 +485,10 @@ export class Bush extends GameObject {
         const size = this.size;
 
         ctx.save();
-        ctx.translate(this.x, this.y);
+
+        // Sway Animation
+        const sway = Math.sin(this.time * 3 + this.y * 0.1) * 2;
+        ctx.translate(this.x + sway, this.y);
 
         ctx.fillStyle = species.colors[0];
 
