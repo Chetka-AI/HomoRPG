@@ -556,10 +556,11 @@ export class Bush extends GameObject {
             ctx.beginPath(); ctx.arc(0, 0, size*0.35, 0, Math.PI*2); ctx.fill();
 
             // Fruits
-            if (this.hasFruits) {
+            if (this.hasFruits && this.species.fruit) {
                 ctx.fillStyle = this.species.fruit.color || '#9c27b0';
+                const maxFruits = (this.species.fruit.countRange && this.species.fruit.countRange[1]) || 5;
                 for(let i=0; i<this.fruits; i++) {
-                    const angle = (Math.PI * 2 * i) / 3;
+                    const angle = (Math.PI * 2 * i) / maxFruits;
                     ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
                 }
             }
@@ -570,7 +571,7 @@ export class Bush extends GameObject {
 
     getActions(character) {
         const actions = [];
-        if (this.hasFruits) {
+        if (this.hasFruits && this.species.fruit) {
             actions.push({
                 label: 'Zbierz (🫳)',
                 action: () => {
