@@ -21,7 +21,10 @@ export class World {
     }
 
     remove(obj) {
-        this.objects = this.objects.filter(o => o !== obj);
+        const index = this.objects.indexOf(obj);
+        if (index > -1) {
+            this.objects.splice(index, 1);
+        }
     }
 
     update(dt) {
