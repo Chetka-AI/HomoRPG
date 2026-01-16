@@ -206,19 +206,13 @@ export class Inventory {
             isDragging = false;
         };
 
-            let item = null;
-            if (type === 'slot') item = this.slots[index];
-            else if (type === 'hand') item = this.hands[index];
-
-            this.consumeItem(item);
-        });
-
         // Touch Support (Long Press to Drag)
         let dragSource = null;
         let dragGhost = null;
         let longPressTimer = null;
-        let isDragging = false;
         let startTouch = null;
+
+        const container = panel; // Using panel as container
 
         container.addEventListener('touchstart', (e) => {
             const slot = e.target.closest('.inv-slot');
