@@ -206,19 +206,13 @@ export class Inventory {
             isDragging = false;
         };
 
-            let item = null;
-            if (type === 'slot') item = this.slots[index];
-            else if (type === 'hand') item = this.hands[index];
-
-            this.consumeItem(item);
-        });
-
         // Touch Support (Long Press to Drag)
         let dragSource = null;
         let dragGhost = null;
         let longPressTimer = null;
-        let isDragging = false;
+        let isTouchDragging = false;
         let startTouch = null;
+        const container = panel;
 
         container.addEventListener('touchstart', (e) => {
             const slot = e.target.closest('.inv-slot');
@@ -231,7 +225,7 @@ export class Inventory {
 
             // Start Long Press Timer
             longPressTimer = setTimeout(() => {
-                isDragging = true;
+                isTouchDragging = true;
 
                 // Create Ghost
                 dragSource = {
@@ -261,7 +255,7 @@ export class Inventory {
             if (e.touches.length > 1) return;
             const touch = e.touches[0];
 
-            if (isDragging) {
+            if (isTouchDragging) {
                 e.preventDefault(); // Prevent scrolling
                 if (dragGhost) {
                     dragGhost.style.left = `${touch.clientX - dragGhost.offsetWidth/2}px`;
@@ -298,8 +292,8 @@ export class Inventory {
             clearTimeout(longPressTimer);
             startTouch = null;
 
-            if (isDragging) {
-                isDragging = false;
+            if (isTouchDragging) {
+                isTouchDragging = false;
                 e.preventDefault(); // Prevent click simulation
 
                 if (dragGhost) {

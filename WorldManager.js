@@ -302,50 +302,47 @@ export class WorldManager {
         this.renderListDirty = false;
     }
 
-    // Split Rendering
-    renderBottom(ctx) {
+    renderWorld(ctx, player) {
         if (!this.mapsLoaded) return;
 
-        // Render Terrain
+        // 1. Render Terrain
         for (const chunk of this.activeChunks.values()) {
             chunk.renderTerrain(ctx);
         }
 
-        // Collect and Render Base Objects (Shadows, Trunks, Bushes, Stones)
-        // Cache sorted objects for renderTop to reuse
-        this._cachedSortedObjects = [];
-        for (const chunk of this.activeChunks.values()) {
-            this._cachedSortedObjects = this._cachedSortedObjects.concat(chunk.objects);
-        }
-        this._cachedSortedObjects.sort((a, b) => a.y - b.y);
-
-        const allObjects = this.renderList;
-
-        // Add Player
-        if (player) {
-            objectsToRender.push(player);
+        // 2. Prepare Render List (Static Objects)
+        if (this.renderListDirty) {
+            this.rebuildRenderList();
         }
 
-        // Sort by Y for Depth
-        objectsToRender.sort((a, b) => a.y - b.y);
+        const objects = this.renderList;
+        let playerRendered = false;
 
-        // Render Crowns (Upper Layer)
-        // Reuse sorted objects from renderBottom if available
-        let allObjects = this._cachedSortedObjects;
+        // 3. Render Bottom Layer (Shadows, Trunks, Stones, Bushes, Player)
+        // Iterate through sorted static objects and inject player at correct depth
+        for (let i = 0; i < objects.length; i++) {
+            const obj = objects[i];
 
-        // Fallback if renderBottom wasn't called (though it should be)
-        if (!allObjects) {
-            allObjects = [];
-            for (const chunk of this.activeChunks.values()) {
-                allObjects = allObjects.concat(chunk.objects);
+            // If player exists and hasn't been rendered, and we've reached an object "closer" than player
+            if (player && !playerRendered && obj.y > player.y) {
+                player.render(ctx);
+                playerRendered = true;
             }
-            allObjects.sort((a, b) => a.y - b.y);
+
+            if (obj.render) {
+                obj.render(ctx);
+            }
         }
 
-        const allObjects = this.renderList;
+        // If player is closest (or list empty), render last
+        if (player && !playerRendered) {
+            player.render(ctx);
+        }
 
-        // Render Top Layer (Tree Crowns)
-        for (const obj of objectsToRender) {
+        // 4. Render Top Layer (Tree Crowns)
+        // Always on top of base layer
+        for (let i = 0; i < objects.length; i++) {
+            const obj = objects[i];
             if (obj.renderCrown) {
                 obj.renderCrown(ctx);
             }
