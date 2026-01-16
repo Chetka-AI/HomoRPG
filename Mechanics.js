@@ -494,7 +494,14 @@ export class Pathfinder {
         const startNode = this.worldToGrid(start.x, start.y);
         const endNode = this.worldToGrid(end.x, end.y);
 
-        const key = (n) => `${n.x},${n.y}`;
+        // Optimization: Use unique integer ID instead of string key
+        // We pack relative coordinates into a 32-bit integer.
+        // Range: +/- 32768 grid units from startNode.
+        const key = (n) => {
+            const dx = n.x - startNode.x;
+            const dy = n.y - startNode.y;
+            return (dy << 16) | (dx & 0xFFFF);
+        };
 
         const gScore = new Map();
         const fScore = new Map();
@@ -525,7 +532,7 @@ export class Pathfinder {
             }
 
             if (current.x === endNode.x && current.y === endNode.y) {
-                return this.reconstructPath(cameFrom, current);
+                return this.reconstructPath(cameFrom, current, key);
             }
 
             closedSet.add(currentKey);
@@ -583,9 +590,8 @@ export class Pathfinder {
         };
     }
 
-    reconstructPath(cameFrom, current) {
+    reconstructPath(cameFrom, current, key) {
         const totalPath = [this.gridToWorld(current.x, current.y)];
-        const key = (n) => `${n.x},${n.y}`;
         
         while (cameFrom.has(key(current))) {
             current = cameFrom.get(key(current));
