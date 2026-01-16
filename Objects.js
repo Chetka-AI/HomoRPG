@@ -370,7 +370,6 @@ export class Bush extends GameObject {
                     ctx.beginPath(); ctx.arc(Math.cos(angle)*8, Math.sin(angle)*8, 3, 0, Math.PI*2); ctx.fill();
                 }
             }
-        }
 
         ctx.restore();
     }
