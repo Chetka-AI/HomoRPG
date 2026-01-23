@@ -1,4 +1,5 @@
 import { Tree, Bush, Stone, World as BaseWorld } from './Objects.js';
+import { Animal } from './Animal.js';
 import { getBiomeData, smoothNoise, mulberry32, TREE_SPECIES, SHRUB_SPECIES, STONE_SPECIES } from './TerrainGenerator.js';
 
 const TILE_SIZE = 100;
@@ -161,6 +162,7 @@ export class WorldManager {
     constructor() {
         this.activeChunks = new Map(); // "x,y" -> Chunk
         this.savedChunks = new Map(); // "x,y" -> Array<GameObject>
+        this.animals = [];
         this.renderList = [];
         this.renderListDirty = true;
         this.biomeCanvas = document.createElement('canvas');
@@ -195,10 +197,27 @@ export class WorldManager {
             this.heightCtx.drawImage(hImg, 0, 0);
             this.heightData = this.heightCtx.getImageData(0, 0, hImg.width, hImg.height);
 
+            // Spawn Test Animals
+            this.spawnTestAnimals();
+
             this.mapsLoaded = true;
             console.log("Maps loaded successfully.");
         } catch (e) {
             console.error("Failed to load maps", e);
+        }
+    }
+
+    spawnTestAnimals() {
+        // Spawn 3 deers near start position
+        for(let i=0; i<3; i++) {
+            const deer = new Animal(500 + i * 50, 500 + i * 20, {
+                name: "Deer",
+                speed: 1.5,
+                color: '#8d6e63',
+                frameSize: {w: 32, h: 32}, // Placeholder for future PNG
+                behavior: 'passive'
+            });
+            this.animals.push(deer);
         }
     }
 
@@ -252,6 +271,11 @@ export class WorldManager {
         if (chunksChanged) {
             this.renderListDirty = true;
         }
+
+        // Update Animals
+        for (const anim of this.animals) {
+            anim.update(dt, (x, y) => this.checkCollision(x, y));
+        }
     }
 
     checkCollision(x, y) {
@@ -280,10 +304,8 @@ export class WorldManager {
         for (const obj of chunk.objects) {
             if (obj.type === 'tree' && obj.state === 'standing') {
                  // Tree trunk collision
-                 // Trunk is at obj.x, obj.y.
                  const dx = x - obj.x;
                  const dy = y - obj.y;
-                 // Trunk radius ~10.
                  if (Math.hypot(dx, dy) < (playerRadius + 10)) return true;
             }
         }
@@ -306,6 +328,11 @@ export class WorldManager {
         if (!this.mapsLoaded) return;
 
         // 1. Render Terrain
+    // Called by main.js
+    renderWorld(ctx, player) {
+        if (!this.mapsLoaded) return;
+
+        // 1. Render Terrain (Bottom Layer)
         for (const chunk of this.activeChunks.values()) {
             chunk.renderTerrain(ctx);
         }

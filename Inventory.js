@@ -214,6 +214,8 @@ export class Inventory {
         let startTouch = null;
         const container = panel;
 
+        const container = panel; // Using panel as container
+
         container.addEventListener('touchstart', (e) => {
             const slot = e.target.closest('.inv-slot');
             if (!slot || !slot.classList.contains('filled')) return;
