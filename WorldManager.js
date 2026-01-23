@@ -324,6 +324,10 @@ export class WorldManager {
         this.renderListDirty = false;
     }
 
+    renderWorld(ctx, player) {
+        if (!this.mapsLoaded) return;
+
+        // 1. Render Terrain
     // Called by main.js
     renderWorld(ctx, player) {
         if (!this.mapsLoaded) return;
@@ -333,39 +337,39 @@ export class WorldManager {
             chunk.renderTerrain(ctx);
         }
 
-        // 2. Collect All Objects (Chunk Objects + Animals + Player)
-        // Optimization: Use cached list from chunks if not dirty?
-        // For now, let's just collect everything to be safe and simple.
+        // 2. Prepare Render List (Static Objects)
+        if (this.renderListDirty) {
+            this.rebuildRenderList();
+        }
 
-        let allObjects = [];
+        const objects = this.renderList;
+        let playerRendered = false;
 
-        // Add Objects from Chunks
-        for (const chunk of this.activeChunks.values()) {
-            for (let i = 0; i < chunk.objects.length; i++) {
-                allObjects.push(chunk.objects[i]);
+        // 3. Render Bottom Layer (Shadows, Trunks, Stones, Bushes, Player)
+        // Iterate through sorted static objects and inject player at correct depth
+        for (let i = 0; i < objects.length; i++) {
+            const obj = objects[i];
+
+            // If player exists and hasn't been rendered, and we've reached an object "closer" than player
+            if (player && !playerRendered && obj.y > player.y) {
+                player.render(ctx);
+                playerRendered = true;
+            }
+
+            if (obj.render) {
+                obj.render(ctx);
             }
         }
 
-        // Add Animals
-        for (const anim of this.animals) {
-            allObjects.push(anim);
+        // If player is closest (or list empty), render last
+        if (player && !playerRendered) {
+            player.render(ctx);
         }
 
-        // Add Player
-        if (player) {
-            allObjects.push(player);
-        }
-
-        // 3. Sort by Y (Painter's Algorithm)
-        allObjects.sort((a, b) => a.y - b.y);
-
-        // 4. Render Base Layer (Trunks, Bushes, Player Body, Animals)
-        for (const obj of allObjects) {
-            obj.render(ctx);
-        }
-
-        // 5. Render Top Layer (Tree Crowns)
-        for (const obj of allObjects) {
+        // 4. Render Top Layer (Tree Crowns)
+        // Always on top of base layer
+        for (let i = 0; i < objects.length; i++) {
+            const obj = objects[i];
             if (obj.renderCrown) {
                 obj.renderCrown(ctx);
             }
